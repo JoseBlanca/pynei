@@ -1,0 +1,22 @@
+[project]
+name = "pyNei"
+version = '0.0.1'
+
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+]
+
+[project.optional-dependencies]
+
+dev = ["ruff"]
+
+test = ["pytest"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
