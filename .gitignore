@@ -1,2 +1,4 @@
 .venv/
 src/pyNei.egg-info/
+src/pynei/__pycache__/
+test/__pycache__/
