@@ -18,7 +18,8 @@ class Genotypes:
             indi_names = numpy.array(range(self.num_indis))
         else:
             indi_names = numpy.array(indi_names)
-        self.indi_names = indi_names
+        indi_names.flags.writeable = False
+        self._indi_names = indi_names
 
     @property
     def num_vars(self):
@@ -31,6 +32,10 @@ class Genotypes:
     @property
     def ploidy(self):
         return self._gt_array.shape[2]
+
+    @property
+    def indi_names(self):
+        return self._indi_names
 
     def select_indis_by_bool_mask(self, mask: Sequence[bool]):
         gt_array = self._gt_array[:, mask, :]
