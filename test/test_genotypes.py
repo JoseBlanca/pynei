@@ -58,3 +58,15 @@ def test_count_alleles():
         [[numpy.nan, numpy.nan], [0.46666667, 0.53333333]],
         equal_nan=True,
     )
+
+
+def test_calc_major_allele_freqs():
+    numpy.random.seed(42)
+    gt_array = numpy.random.randint(-1, 3, size=(3, 10, 2))
+    gts = Genotypes(gt_array)
+    res = gts.calc_major_allele_freqs(
+        min_num_genotypes=3, pops={"pop1": list(range(5)), "pop2": list(range(5, 11))}
+    )
+    expected = [[0.57142857, 0.55555556], [0.55555556, numpy.nan], [0.4, 0.5]]
+    assert numpy.allclose(res.values, numpy.array(expected), equal_nan=True)
+    assert list(res.columns) == ["pop1", "pop2"]

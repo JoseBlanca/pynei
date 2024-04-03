@@ -132,3 +132,21 @@ class Genotypes:
                 result[pop_id]["allelic_freqs"] = allelic_freqs_per_snp
 
         return result
+
+    def calc_major_allele_freqs(
+        self,
+        pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+        min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    ) -> pandas.DataFrame:
+        res = self._count_alleles_per_var(
+            pops=pops,
+            calc_freqs=True,
+            min_num_genotypes=min_num_genotypes,
+        )
+        freqs = []
+        pops = sorted(res.keys())
+        for pop in pops:
+            freqs_for_pop = res[pop]["allelic_freqs"].max(axis=1)
+            freqs.append(freqs_for_pop.values)
+        freqs = pandas.DataFrame(numpy.array(freqs).T, columns=pops)
+        return freqs
