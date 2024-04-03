@@ -9,10 +9,14 @@ def test_genotypes():
     num_indis = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
+    gt_array[0, 0, 0] = 0
+    gt_array[0, 0, 1] = 1
+    gt_array[1, 0, 1] = 2
     gts = Genotypes(gt_array)
     assert gts.num_vars == num_vars
     assert gts.num_indis == num_indis
     assert gts.ploidy == ploidy
+    assert gts.alleles == [0, 1, 2]
 
 
 def test_filter_in_indis():

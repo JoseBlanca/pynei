@@ -37,6 +37,10 @@ class Genotypes:
     def indi_names(self):
         return self._indi_names
 
+    @property
+    def alleles(self):
+        return sorted(numpy.unique(self._gt_array))
+
     def select_indis_by_bool_mask(self, mask: Sequence[bool]):
         gt_array = self._gt_array[:, mask, :]
         indi_names = self.indi_names[mask]
