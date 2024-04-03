@@ -2,6 +2,8 @@ from typing import Sequence
 
 import numpy
 
+MISSING_ALLELE = -1
+
 
 class Genotypes:
     def __init__(
@@ -39,7 +41,7 @@ class Genotypes:
 
     @property
     def alleles(self):
-        return sorted(numpy.unique(self._gt_array))
+        return sorted(set(numpy.unique(self._gt_array)).difference([MISSING_ALLELE]))
 
     def select_indis_by_bool_mask(self, mask: Sequence[bool]):
         gt_array = self._gt_array[:, mask, :]

@@ -1,1 +1,1 @@
-from .genotypes import Genotypes
+from .genotypes import Genotypes, MISSING_ALLELE

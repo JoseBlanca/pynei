@@ -1,7 +1,7 @@
 import pytest
 import numpy
 
-from pynei import Genotypes
+from pynei import Genotypes, MISSING_ALLELE
 
 
 def test_genotypes():
@@ -12,6 +12,7 @@ def test_genotypes():
     gt_array[0, 0, 0] = 0
     gt_array[0, 0, 1] = 1
     gt_array[1, 0, 1] = 2
+    gt_array[1, 0, 0] = MISSING_ALLELE
     gts = Genotypes(gt_array)
     assert gts.num_vars == num_vars
     assert gts.num_indis == num_indis
