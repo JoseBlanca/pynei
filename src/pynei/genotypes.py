@@ -5,6 +5,7 @@ import pandas
 
 MISSING_ALLELE = -1
 DEFAULT_NAME_POP_ALL_INDIS = "all_indis"
+MIN_NUM_GENOTYPES_FOR_POP_STAT = 20
 
 
 class Genotypes:
@@ -80,10 +81,13 @@ class Genotypes:
     def _count_alleles_per_var(
         self,
         pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+        calc_freqs: bool = False,
+        min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
     ):
         alleles = self.alleles
 
         pop_masks = self._get_pop_masks(pops)
+        ploidy = self.ploidy
 
         gt_array = self._gt_array
         result = {}
@@ -106,4 +110,25 @@ class Genotypes:
                 "allele_counts": allele_counts,
                 "missing_gts_per_var": missing_counts,
             }
+
+            if calc_freqs:
+                expected_num_allelic_gts_in_snp = (
+                    gts_for_pop.shape[1] * gts_for_pop.shape[2]
+                )
+                num_allelic_gts_per_snp = (
+                    expected_num_allelic_gts_in_snp - missing_counts.values
+                )
+                num_allelic_gts_per_snp = num_allelic_gts_per_snp.reshape(
+                    (num_allelic_gts_per_snp.shape[0], 1)
+                )
+                allelic_freqs_per_snp = allele_counts / num_allelic_gts_per_snp
+                num_gts_per_snp = (
+                    num_allelic_gts_per_snp.reshape((num_allelic_gts_per_snp.size,))
+                    / ploidy
+                )
+                not_enough_data = num_gts_per_snp < min_num_genotypes
+                allelic_freqs_per_snp[not_enough_data] = numpy.nan
+
+                result[pop_id]["allelic_freqs"] = allelic_freqs_per_snp
+
         return result
