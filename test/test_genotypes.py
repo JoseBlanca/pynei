@@ -70,3 +70,18 @@ def test_calc_major_allele_freqs():
     expected = [[0.57142857, 0.55555556], [0.55555556, numpy.nan], [0.4, 0.5]]
     assert numpy.allclose(res.values, numpy.array(expected), equal_nan=True)
     assert list(res.columns) == ["pop1", "pop2"]
+
+
+def test_calc_obs_het():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, -1]],
+            [[0, 0], [0, 0], [0, 1], [1, -1], [-1, 0]],
+            [[-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]],
+        ]
+    )
+    gts = Genotypes(gts)
+    expected_obs_het = numpy.nanmean(numpy.array([1 / 4, numpy.nan, numpy.nan]))
+    obs_het = gts.calc_obs_het(min_num_genotypes=4)
+    assert numpy.allclose(obs_het.values, expected_obs_het, equal_nan=True)
+    assert list(obs_het.index) == [genotypes.DEFAULT_NAME_POP_ALL_INDIS]

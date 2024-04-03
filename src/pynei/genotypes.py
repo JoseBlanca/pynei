@@ -150,3 +150,50 @@ class Genotypes:
             freqs.append(freqs_for_pop.values)
         freqs = pandas.DataFrame(numpy.array(freqs).T, columns=pops)
         return freqs
+
+    def _calc_obs_het_per_var(
+        self,
+        pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+        min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    ):
+        pop_masks = self._get_pop_masks(pops)
+        gt_array = self._gt_array
+        freqs = []
+        pops = []
+        for pop_id, pop_mask in pop_masks:
+            pops.append(pop_id)
+            gts_for_pop = gt_array[:, pop_mask, :]
+            gt_is_missing = numpy.any(gts_for_pop == MISSING_ALLELE, axis=2)
+
+            first_haploid_gt = gts_for_pop[:, :, 0]
+            is_het = None
+            for idx in range(1, self.ploidy):
+                haploid_gt = gts_for_pop[:, :, idx]
+                different_allele = first_haploid_gt != haploid_gt
+                if is_het is None:
+                    is_het = different_allele
+                else:
+                    is_het = numpy.logical_or(is_het, different_allele)
+            het_and_not_missing = numpy.logical_and(is_het, ~gt_is_missing)
+            num_obs_het = het_and_not_missing.sum(axis=1)
+            num_indis = het_and_not_missing.shape[1]
+            num_gts_per_var = num_indis - gt_is_missing.sum(axis=1)
+            with numpy.errstate(divide="ignore", invalid="ignore"):
+                freq_obs_het = num_obs_het / num_gts_per_var
+            not_enough_indis = num_gts_per_var < min_num_genotypes
+            freq_obs_het[not_enough_indis] = numpy.nan
+            freqs.append(freq_obs_het)
+        freqs = pandas.DataFrame(numpy.array(freqs).T, columns=pops)
+        return {"freqs": freqs}
+
+    def calc_obs_het(
+        self,
+        pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+        min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    ):
+        res = self._calc_obs_het_per_var(
+            pops=pops,
+            min_num_genotypes=min_num_genotypes,
+        )
+        freqs = res["freqs"]
+        return freqs.mean(axis=0)
