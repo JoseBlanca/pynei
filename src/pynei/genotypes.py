@@ -1,8 +1,10 @@
 from typing import Sequence
 
 import numpy
+import pandas
 
 MISSING_ALLELE = -1
+DEFAULT_NAME_POP_ALL_INDIS = "all_indis"
 
 
 class Genotypes:
@@ -41,9 +43,12 @@ class Genotypes:
     def indi_names(self):
         return self._indi_names
 
+    def _get_all_alleles(self):
+        return sorted(numpy.unique(self._gt_array))
+
     @property
     def alleles(self):
-        return sorted(set(numpy.unique(self._gt_array)).difference([MISSING_ALLELE]))
+        return sorted(set(self._get_all_alleles()).difference([MISSING_ALLELE]))
 
     def select_indis_by_bool_mask(self, mask: Sequence[bool]):
         gt_array = self._gt_array[:, mask, :]
@@ -61,3 +66,44 @@ class Genotypes:
 
         mask = numpy.isin(self.indi_names, indi_names)
         return self.select_indis_by_bool_mask(mask)
+
+    def _get_pop_masks(self, pops):
+        if pops is None:
+            pop = DEFAULT_NAME_POP_ALL_INDIS
+            mask = numpy.ones(shape=(self.num_indis), dtype=bool)
+            yield pop, mask
+        else:
+            for pop, indis_in_pop in pops.items():
+                mask = numpy.isin(self.indi_names, indis_in_pop)
+                yield pop, mask
+
+    def _count_alleles_per_var(
+        self,
+        pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    ):
+        alleles = self.alleles
+
+        pop_masks = self._get_pop_masks(pops)
+
+        gt_array = self._gt_array
+        result = {}
+        for pop_id, pop_mask in pop_masks:
+            gts_for_pop = gt_array[:, pop_mask, :]
+
+            allele_counts = numpy.empty(
+                shape=(gts_for_pop.shape[0], len(alleles)), dtype=numpy.int64
+            )
+            missing_counts = None
+            for idx, allele in enumerate([MISSING_ALLELE] + alleles):
+                allele_counts_per_row = numpy.sum(gts_for_pop == allele, axis=(1, 2))
+                if idx == 0:
+                    missing_counts = pandas.Series(allele_counts_per_row)
+                else:
+                    allele_counts[:, idx - 1] = allele_counts_per_row
+            allele_counts = pandas.DataFrame(allele_counts, columns=alleles)
+
+            result[pop_id] = {
+                "allele_counts": allele_counts,
+                "missing_gts_per_var": missing_counts,
+            }
+        return result

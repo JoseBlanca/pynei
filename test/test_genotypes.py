@@ -2,6 +2,7 @@ import pytest
 import numpy
 
 from pynei import Genotypes, MISSING_ALLELE
+from pynei import genotypes
 
 
 def test_genotypes():
@@ -30,3 +31,30 @@ def test_filter_in_indis():
 
     with pytest.raises(ValueError):
         gts.select_indis_by_name([3])
+
+
+def test_count_alleles():
+    numpy.random.seed(42)
+    gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
+    gts = Genotypes(gt_array)
+    res = gts._count_alleles_per_var()
+    assert numpy.all(
+        res[genotypes.DEFAULT_NAME_POP_ALL_INDIS]["allele_counts"].values
+        == [[4, 2], [5, 1]]
+    )
+    assert numpy.all(
+        res[genotypes.DEFAULT_NAME_POP_ALL_INDIS]["missing_gts_per_var"].values
+        == [0, 0]
+    )
+
+    gt_array = numpy.random.randint(-1, 2, size=(2, 10, 2))
+    gts = Genotypes(gt_array)
+    res = gts._count_alleles_per_var()
+    assert numpy.all(
+        res[genotypes.DEFAULT_NAME_POP_ALL_INDIS]["allele_counts"].values
+        == [[7, 6], [7, 8]]
+    )
+    assert numpy.all(
+        res[genotypes.DEFAULT_NAME_POP_ALL_INDIS]["missing_gts_per_var"].values
+        == [7, 5]
+    )
