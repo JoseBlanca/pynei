@@ -7,7 +7,9 @@ MISSING_ALLELE = -1
 
 class Genotypes:
     def __init__(
-        self, gt_array: numpy.ndarray, indi_names: Sequence[str | int] | None = None
+        self,
+        gt_array: numpy.ndarray,
+        indi_names: Sequence[str] | Sequence[int] | None = None,
     ):
         if gt_array.ndim != 3:
             raise ValueError(
@@ -49,7 +51,7 @@ class Genotypes:
         Cls = self.__class__
         return Cls(gt_array=gt_array, indi_names=indi_names)
 
-    def select_indis_by_name(self, indi_names: Sequence[str | int]):
+    def select_indis_by_name(self, indi_names: Sequence[str] | Sequence[int]):
         indis_not_found = set(indi_names).difference(self.indi_names)
         if indis_not_found:
             raise ValueError(
