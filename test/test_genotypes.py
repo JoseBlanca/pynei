@@ -1,3 +1,4 @@
+import pytest
 import numpy
 
 from pynei import Genotypes
@@ -12,3 +13,15 @@ def test_genotypes():
     assert gts.num_vars == num_vars
     assert gts.num_indis == num_indis
     assert gts.ploidy == ploidy
+
+
+def test_filter_in_indis():
+    gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
+    indis = list(range(gt_array.shape[1]))
+    gts = Genotypes(gt_array, indi_names=indis)
+    selected_indis = indis[:2]
+    gts = gts.select_indis_by_name(selected_indis)
+    assert list(gts.indi_names) == selected_indis
+
+    with pytest.raises(ValueError):
+        gts.select_indis_by_name([3])

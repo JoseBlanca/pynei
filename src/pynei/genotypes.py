@@ -1,9 +1,11 @@
+from typing import Sequence
+
 import numpy
 
 
 class Genotypes:
     def __init__(
-        self, gt_array: numpy.ndarray, indi_names: list[str | int] | None = None
+        self, gt_array: numpy.ndarray, indi_names: Sequence[str | int] | None = None
     ):
         if gt_array.ndim != 3:
             raise ValueError(
@@ -13,8 +15,10 @@ class Genotypes:
         self._gt_array = gt_array
 
         if indi_names is None:
-            indi_names = list(range(self.num_indis))
-        self._indi_names = indi_names
+            indi_names = numpy.array(range(self.num_indis))
+        else:
+            indi_names = numpy.array(indi_names)
+        self.indi_names = indi_names
 
     @property
     def num_vars(self):
@@ -27,3 +31,20 @@ class Genotypes:
     @property
     def ploidy(self):
         return self._gt_array.shape[2]
+
+    def select_indis_by_bool_mask(self, mask: Sequence[bool]):
+        gt_array = self._gt_array[:, mask, :]
+        indi_names = self.indi_names[mask]
+        Cls = self.__class__
+        return Cls(gt_array=gt_array, indi_names=indi_names)
+
+    def select_indis_by_name(self, indi_names: Sequence[str | int]):
+        indis_not_found = set(indi_names).difference(self.indi_names)
+        if indis_not_found:
+            raise ValueError(
+                "Some individuals selected were not found in the GTs: ",
+                ",".join(map(str, indis_not_found)),
+            )
+
+        mask = numpy.isin(self.indi_names, indi_names)
+        return self.select_indis_by_bool_mask(mask)
