@@ -162,3 +162,34 @@ def calc_obs_het(
     )
     freqs = res["freqs"]
     return freqs.mean(axis=0)
+
+
+def calc_exp_het(
+    gts: Genotypes,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    unbiased=True,
+):
+    res = _count_alleles_per_var(
+        gts=gts, pops=pops, calc_freqs=True, min_num_genotypes=min_num_genotypes
+    )
+    pop_names = sorted(res.keys())
+    nei = {}
+    for pop in pop_names:
+        pop_freqs = res[pop]["allelic_freqs"]
+        nei_per_var = 1 - numpy.sum((pop_freqs**2).values, axis=1)
+        if unbiased:
+            num_indis = len(pops[pop])
+            num_indis_per_var = num_indis - (
+                res[pop]["missing_gts_per_var"] / gts.ploidy
+            )
+            nei_per_var = (
+                (2 * num_indis_per_var) / (2 * num_indis_per_var - 1)
+            ) * nei_per_var
+
+        nei[pop] = numpy.nanmean(nei_per_var)
+    nei = pandas.Series(nei)
+    return nei
+
+
+calc_nei_diversity = calc_exp_het

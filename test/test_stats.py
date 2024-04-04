@@ -1,6 +1,12 @@
 import numpy
 
-from pynei import Genotypes, calc_major_allele_freqs, calc_obs_het, calc_poly_vars_ratio
+from pynei import (
+    Genotypes,
+    calc_major_allele_freqs,
+    calc_obs_het,
+    calc_poly_vars_ratio,
+    calc_exp_het,
+)
 from pynei.stats import _count_alleles_per_var
 from pynei.config import DEFAULT_NAME_POP_ALL_INDIS
 
@@ -65,3 +71,25 @@ def test_calc_obs_het():
     obs_het = calc_obs_het(gts, min_num_genotypes=4)
     assert numpy.allclose(obs_het.values, expected_obs_het, equal_nan=True)
     assert list(obs_het.index) == [DEFAULT_NAME_POP_ALL_INDIS]
+
+
+def test_calc_exp_het():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, -1]],
+            [[0, 0], [0, 0], [0, 1], [1, 0], [-1, -1]],
+            [[-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]],
+        ]
+    )
+    #       allele counts  allele freqs            exp hom                          exp het      u exp het
+    #       pop1    pop2   pop1         pop2       pop1               pop2          pop1   pop2  pop1   pop2
+    # snp1  2 1 1   5 0 0  2/4 1/4 1/4  5/5 0   0  0.25 0.0625 0.0625 1    0    0   0.625  0     0.8333 0
+    # snp2  4 0 0   2 2 0  4/4 0   0    2/4 2/4 0  1    0      0      0.25 0.25 0   0      0.5   0      0.6666
+    # snp3  0 0 0   0 0 0  nan nan nan  nan nan nan nan nan    nan    nan  nan  nan nan    nan   nan    nan
+    gts = Genotypes(gts)
+    pops = {"pop1": [0, 1], "pop2": [2, 3, 4]}
+    nei = calc_exp_het(gts, pops=pops, min_num_genotypes=1)
+    assert numpy.allclose(nei.values, [0.416667, 0.333333])
+
+    nei = calc_exp_het(gts, pops=pops, min_num_genotypes=1, unbiased=False)
+    assert numpy.allclose(nei.values, [0.3125, 0.2500])
