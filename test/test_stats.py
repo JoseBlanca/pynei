@@ -1,7 +1,7 @@
 import numpy
 
-from pynei import Genotypes
-from pynei.stats import _count_alleles_per_var, calc_major_allele_freqs, calc_obs_het
+from pynei import Genotypes, calc_major_allele_freqs, calc_obs_het
+from pynei.stats import _count_alleles_per_var
 from pynei.config import DEFAULT_NAME_POP_ALL_INDIS
 
 
