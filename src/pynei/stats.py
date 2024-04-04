@@ -8,6 +8,7 @@ from .config import (
     DEFAULT_NAME_POP_ALL_INDIS,
     MIN_NUM_GENOTYPES_FOR_POP_STAT,
     MISSING_ALLELE,
+    DEF_POLY_THRESHOLD,
 )
 
 
@@ -96,6 +97,21 @@ def calc_major_allele_freqs(
         freqs.append(freqs_for_pop.values)
     freqs = pandas.DataFrame(numpy.array(freqs).T, columns=pops)
     return freqs
+
+
+def calc_poly_vars_ratio(
+    gts: Genotypes,
+    poly_threshold=DEF_POLY_THRESHOLD,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+):
+    mafs = calc_major_allele_freqs(
+        gts=gts, pops=pops, min_num_genotypes=min_num_genotypes
+    )
+    num_not_nas = mafs.notna().sum(axis=0)
+    num_poly = (mafs < poly_threshold).sum(axis=0)
+    poly_ratio = num_poly / num_not_nas
+    return poly_ratio
 
 
 def _calc_obs_het_per_var(
