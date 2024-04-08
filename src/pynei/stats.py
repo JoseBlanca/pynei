@@ -192,7 +192,7 @@ def _calc_exp_het_per_var(
         nei.append(nei_per_var)
 
     nei = pandas.DataFrame(numpy.array(nei).T, columns=pop_names)
-    return nei
+    return {"exp_het": nei, "counts_and_freqs_per_var": res}
 
 
 def calc_exp_het(
@@ -203,7 +203,7 @@ def calc_exp_het(
 ):
     nei_per_var = _calc_exp_het_per_var(
         gts=gts, pops=pops, min_num_genotypes=min_num_genotypes, unbiased=unbiased
-    )
+    )["exp_het"]
     nei = pandas.Series(
         numpy.nanmean(nei_per_var.values, axis=0), index=nei_per_var.columns
     )
