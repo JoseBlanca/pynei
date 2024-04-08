@@ -123,6 +123,7 @@ def _calc_obs_het_per_var(
     gt_array = gts._gt_array
     freqs = []
     pops = []
+    num_gts = []
     for pop_id, pop_mask in pop_masks:
         pops.append(pop_id)
         gts_for_pop = gt_array[:, pop_mask, :]
@@ -146,8 +147,10 @@ def _calc_obs_het_per_var(
         not_enough_indis = num_gts_per_var < min_num_genotypes
         freq_obs_het[not_enough_indis] = numpy.nan
         freqs.append(freq_obs_het)
+        num_gts.append(num_gts_per_var)
     freqs = pandas.DataFrame(numpy.array(freqs).T, columns=pops)
-    return {"freqs": freqs}
+    num_gts = pandas.DataFrame(numpy.array(num_gts).T, columns=pops)
+    return {"freqs": freqs, "num_gts": num_gts}
 
 
 def calc_obs_het(
@@ -164,7 +167,7 @@ def calc_obs_het(
     return freqs.mean(axis=0)
 
 
-def calc_exp_het(
+def _calc_exp_het_per_var(
     gts: Genotypes,
     pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
     min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
@@ -174,7 +177,7 @@ def calc_exp_het(
         gts=gts, pops=pops, calc_freqs=True, min_num_genotypes=min_num_genotypes
     )
     pop_names = sorted(res.keys())
-    nei = {}
+    nei = []
     for pop in pop_names:
         pop_freqs = res[pop]["allelic_freqs"]
         nei_per_var = 1 - numpy.sum((pop_freqs**2).values, axis=1)
@@ -186,9 +189,24 @@ def calc_exp_het(
             nei_per_var = (
                 (2 * num_indis_per_var) / (2 * num_indis_per_var - 1)
             ) * nei_per_var
+        nei.append(nei_per_var)
 
-        nei[pop] = numpy.nanmean(nei_per_var)
-    nei = pandas.Series(nei)
+    nei = pandas.DataFrame(numpy.array(nei).T, columns=pop_names)
+    return nei
+
+
+def calc_exp_het(
+    gts: Genotypes,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    unbiased=True,
+):
+    nei_per_var = _calc_exp_het_per_var(
+        gts=gts, pops=pops, min_num_genotypes=min_num_genotypes, unbiased=unbiased
+    )
+    nei = pandas.Series(
+        numpy.nanmean(nei_per_var.values, axis=0), index=nei_per_var.columns
+    )
     return nei
 
 
