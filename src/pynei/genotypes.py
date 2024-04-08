@@ -15,7 +15,7 @@ class Genotypes:
             raise ValueError(
                 "Genotype array should have three dimesions: variant x indi x ploidy"
             )
-
+        gt_array.flags.writeable = False
         self._gt_array = gt_array
 
         if indi_names is None:
@@ -40,6 +40,10 @@ class Genotypes:
     @property
     def indi_names(self):
         return self._indi_names
+
+    @property
+    def gt_array(self):
+        return self._gt_array
 
     def _get_all_alleles(self):
         return sorted(numpy.unique(self._gt_array))
