@@ -1,0 +1,4 @@
+LD
+PCA
+PCoA
+Kosman dist between individuals
