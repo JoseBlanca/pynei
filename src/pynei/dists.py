@@ -7,8 +7,9 @@ import warnings
 import numpy
 import pandas
 
-from .config import MIN_NUM_GENOTYPES_FOR_POP_STAT
+from .config import MIN_NUM_GENOTYPES_FOR_POP_STAT, MISSING_ALLELE
 from .stats import _calc_exp_het_per_var, _calc_obs_het_per_var
+from .genotypes import Genotypes
 
 
 def _get_vector_from_square(square_dists):
@@ -282,3 +283,67 @@ def calc_jost_dest_dist(
         dest.loc[pop2, pop1] = res["dest"]
     dest = Distances.from_square_dists(dest)
     return dest
+
+
+class KosmanDistCalculator:
+    def __init__(self, gts: Genotypes):
+        """It calculates the pairwise distance between individuals using the Kosman-Leonard dist
+
+        The Kosman distance is explained in "Similarity coefficients for molecular markers in
+        studies of genetic relationships between individuals for haploid, diploid, and polyploid
+        species"
+        Kosman, Leonard (2005) Mol. Ecol. (DOI: 10.1111/j.1365-294X.2005.02416.x)
+        """
+
+        self.indi_names = gts.indi_names
+        gt_array = gts.gt_array
+        self.gt_array = gt_array
+        self.allele_is_missing = gt_array == MISSING_ALLELE
+
+    def _get_sample_gts(self, indi_i, indi_j):
+        gt_i = self.gt_array[:, indi_i, :]
+        is_missing_i = numpy.sum(self.allele_is_missing[:, indi_i, :], axis=1) > 0
+
+        gt_j = self.gt_array[:, indi_j, :]
+        is_missing_j = numpy.sum(self.allele_is_missing[:, indi_j, :], axis=1) > 0
+
+        is_called = numpy.logical_not(numpy.logical_or(is_missing_i, is_missing_j))
+
+        gt_i = gt_i[is_called, ...]
+        gt_j = gt_j[is_called, ...]
+        return gt_i, gt_j
+
+    def _calc_dist_between_two_indis(self, indi_i, indi_j):
+        gt_i, gt_j = self._get_sample_gts(indi_i, indi_j)
+
+        if gt_i.shape[1] != 2:
+            raise ValueError("Only diploid are allowed")
+
+        alleles_comparison1 = gt_i == gt_j.transpose()[:, :, None]
+        alleles_comparison2 = gt_j == gt_i.transpose()[:, :, None]
+
+        result = numpy.add(
+            numpy.any(alleles_comparison2, axis=2).sum(axis=0),
+            numpy.any(alleles_comparison1, axis=2).sum(axis=0),
+        )
+
+        result2 = numpy.full(result.shape, fill_value=0.5)
+        result2[result == 0] = 1
+        result2[result == 4] = 0
+        return result2.sum(), result2.shape[0]
+
+    def calc_pairwise_dists(self):
+        n_samples = self.gt_array.shape[1]
+        num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
+        dists = numpy.zeros(num_dists_to_calculate)
+        n_snps_matrix = numpy.zeros(num_dists_to_calculate)
+
+        index = 0
+
+        sample_combinations = itertools.combinations(range(n_samples), 2)
+        for sample_i, sample_j in sample_combinations:
+            dist, n_snps = self._calc_dist_between_two_indis(sample_i, sample_j)
+            dists[index] = dist
+            n_snps_matrix[index] = n_snps
+            index += 1
+        return Distances(dists / n_snps_matrix, names=self.indi_names)
