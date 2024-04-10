@@ -20,6 +20,33 @@ def test_genotypes():
     assert gts.ploidy == ploidy
     assert gts.alleles == [0, 1, 2]
 
+    gt_array = numpy.random.randint(0, 1, size=(num_vars, num_indis, ploidy))
+    gt_array[0, 0, 0] = 0
+    gt_array[0, 0, 1] = 1
+    gt_array[1, :, :] = 2
+    gt_array[1, 0, 1] = 3
+    gt_array[2, :, :] = MISSING_ALLELE
+    gts = Genotypes(gt_array)
+    with pytest.raises(ValueError):
+        gts.get_mat_012()
+
+    gt_array = numpy.random.randint(0, 1, size=(num_vars, num_indis, ploidy))
+    gt_array[0, 0, 0] = 0
+    gt_array[0, 0, 1] = 1
+    gt_array[0, 1, 0] = 1
+    gt_array[0, 1, 1] = 1
+    gt_array[1, :, :] = 2
+    gt_array[1, 0, 1] = 3
+    gt_array[1, 3, 0] = 3
+    gt_array[1, 3, 1] = 3
+    gts = Genotypes(gt_array)
+    with pytest.raises(ValueError):
+        gts.get_mat_012()
+
+    mat012 = gts.get_mat_012(transform_to_biallelic=True)
+    expected = [[1, 2, 0, 0], [1, 0, 0, 2], [0, 0, 0, 0]]
+    assert numpy.all(mat012 == expected)
+
 
 def test_filter_in_indis():
     gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
