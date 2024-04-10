@@ -7,7 +7,6 @@ from pynei import (
     calc_poly_vars_ratio,
     calc_exp_het,
 )
-from pynei.stats import _count_alleles_per_var
 from pynei.config import DEFAULT_NAME_POP_ALL_INDIS
 
 
@@ -15,7 +14,7 @@ def test_count_alleles():
     numpy.random.seed(42)
     gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
     gts = Genotypes(gt_array)
-    res = _count_alleles_per_var(gts)
+    res = gts._count_alleles_per_var()
     assert numpy.all(
         res[DEFAULT_NAME_POP_ALL_INDIS]["allele_counts"].values == [[4, 2], [5, 1]]
     )
@@ -25,7 +24,7 @@ def test_count_alleles():
 
     gt_array = numpy.random.randint(-1, 2, size=(2, 10, 2))
     gts = Genotypes(gt_array)
-    res = _count_alleles_per_var(gts, calc_freqs=True, min_num_genotypes=7)
+    res = gts._count_alleles_per_var(calc_freqs=True, min_num_genotypes=7)
     pop_id = DEFAULT_NAME_POP_ALL_INDIS
     assert numpy.all(res[pop_id]["allele_counts"].values == [[7, 6], [7, 8]])
     assert numpy.all(res[pop_id]["missing_gts_per_var"].values == [7, 5])
