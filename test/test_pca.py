@@ -2,7 +2,8 @@ import numpy
 
 from datasets import IRIS
 
-from pynei import do_pca, Genotypes, do_pca_with_genotypes
+from pynei import do_pca, Genotypes, do_pca_with_genotypes, do_pcoa
+from pynei.dists import Distances
 
 
 def test_pca():
@@ -29,3 +30,13 @@ def test_pca_gt():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     gts = Genotypes(gt_array)
     do_pca_with_genotypes(gts)
+
+
+def test_pcoa():
+    dists = [0.2, 0.3, 0.9, 0.9, 0.1, 0.8, 0.7, 0.7, 0.8, 0.2]
+    dists = Distances(numpy.array(dists), names=["i1", "i2", "i3", "i4", "i5"])
+    res = do_pcoa(dists)
+    projections = res["projections"]
+    assert abs(projections.loc["i1", "PC0"] - projections.loc["i2", "PC0"]) < abs(
+        projections.loc["i1", "PC0"] - projections.loc["i4", "PC0"]
+    )
