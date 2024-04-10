@@ -1,6 +1,8 @@
 import numpy
 import pandas
 
+from .genotypes import Genotypes
+
 
 def do_pca(data: pandas.DataFrame, center_data=True, standarize_data=True):
     if standarize_data and not center_data:
@@ -39,3 +41,9 @@ def do_pca(data: pandas.DataFrame, center_data=True, standarize_data=True):
             prin_comps, index=prin_comps_names, columns=trait_names
         ),
     }
+
+
+def do_pca_with_genotypes(gts: Genotypes, transform_to_biallelic=False):
+    mat012 = gts.get_mat_012(transform_to_biallelic=transform_to_biallelic)
+    mat012 = pandas.DataFrame(mat012.T, index=gts.indi_names)
+    return do_pca(mat012, center_data=True, standarize_data=True)

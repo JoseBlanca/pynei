@@ -2,7 +2,7 @@ import numpy
 
 from datasets import IRIS
 
-from pynei import do_pca
+from pynei import do_pca, Genotypes, do_pca_with_genotypes
 
 
 def test_pca():
@@ -19,3 +19,13 @@ def test_pca():
         assert numpy.allclose(
             expected_princomps[idx], princomps[idx]
         ) or numpy.allclose(expected_princomps[idx], -princomps[idx])
+
+
+def test_pca_gt():
+    numpy.random.seed(seed=42)
+    num_vars = 100
+    num_indis = 20
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
+    gts = Genotypes(gt_array)
+    do_pca_with_genotypes(gts)
