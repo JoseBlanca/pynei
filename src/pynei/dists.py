@@ -333,17 +333,47 @@ class KosmanDistCalculator:
         return result2.sum(), result2.shape[0]
 
     def calc_pairwise_dists(self):
-        n_samples = self.gt_array.shape[1]
-        num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
+        dists = self._calc_pairwise_dists_between_pops()
+        return Distances(dists, names=self.indi_names)
+
+    def _calc_pairwise_dists_between_pops(self, pop1_samples=None, pop2_samples=None):
+        indi_names = self.indi_names
+        if pop1_samples is None:
+            n_samples = self.gt_array.shape[1]
+            num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
+            dists = numpy.zeros(num_dists_to_calculate)
+            n_snps_matrix = numpy.zeros(num_dists_to_calculate)
+        else:
+            shape = (len(pop1_samples), len(pop2_samples))
+            dists = numpy.zeros(shape)
+            n_snps_matrix = numpy.zeros(shape)
+
         dists = numpy.zeros(num_dists_to_calculate)
         n_snps_matrix = numpy.zeros(num_dists_to_calculate)
 
-        index = 0
+        if pop1_samples is None:
+            sample_combinations = itertools.combinations(range(n_samples), 2)
+        else:
+            pop1_indi_idxs = [
+                idx for idx, sample in enumerate(indi_names) if sample in pop1_samples
+            ]
+            pop2_indi_idxs = [
+                idx for idx, sample in enumerate(indi_names) if sample in pop2_samples
+            ]
+            sample_combinations = itertools.product(pop1_indi_idxs, pop2_indi_idxs)
 
-        sample_combinations = itertools.combinations(range(n_samples), 2)
+        index = 0
         for sample_i, sample_j in sample_combinations:
             dist, n_snps = self._calc_dist_between_two_indis(sample_i, sample_j)
-            dists[index] = dist
-            n_snps_matrix[index] = n_snps
-            index += 1
-        return Distances(dists / n_snps_matrix, names=self.indi_names)
+
+            if pop1_samples is None:
+                dists[index] = dist
+                n_snps_matrix[index] = n_snps
+                index += 1
+            else:
+                dists_samplei_idx = pop1_indi_idxs.index(sample_i)
+                dists_samplej_idx = pop2_indi_idxs.index(sample_j)
+                dists[dists_samplei_idx, dists_samplej_idx] = dist
+                n_snps_matrix[dists_samplei_idx, dists_samplej_idx] = n_snps
+
+        return dists / n_snps_matrix
