@@ -1,8 +1,8 @@
 import itertools
-from typing import Sequence, Callable
+from typing import Sequence
 import math
 import warnings
-
+import random
 
 import numpy
 import pandas
@@ -338,8 +338,17 @@ class _KosmanDistCalculator:
 
 
 def _calc_pairwise_dists_between_pops(
-    dist_between_items_calculator, pop1_samples=None, pop2_samples=None
+    dist_between_items_calculator,
+    pop1_samples=None,
+    pop2_samples=None,
 ):
+    if (pop1_samples is not None and pop2_samples is None) or (
+        pop1_samples is None and pop2_samples is not None
+    ):
+        raise ValueError(
+            "When pop1_samples or pop2_samples are given both should be given"
+        )
+
     if pop1_samples is None:
         n_samples = dist_between_items_calculator.num_items
         num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
@@ -353,7 +362,6 @@ def _calc_pairwise_dists_between_pops(
         dist_between_items_calculator.calc_dist_between_two_indis
     )
 
-    dists = numpy.zeros(num_dists_to_calculate)
     if pop1_samples is None:
         sample_combinations = itertools.combinations(range(n_samples), 2)
     else:
@@ -377,14 +385,186 @@ def _calc_pairwise_dists_between_pops(
             dists_samplej_idx = pop2_indi_idxs.index(sample_j)
             dists[dists_samplei_idx, dists_samplej_idx] = dist
 
+    if pop1_samples is not None:
+        dists = pandas.DataFrame(dists, index=pop1_samples, columns=pop2_samples)
+
     return dists
 
 
-def _calc_pairwise_dists(dist_between_items_calculator):
-    dists = _calc_pairwise_dists_between_pops(dist_between_items_calculator)
-    return Distances(dists, names=dist_between_items_calculator.indi_names)
+def _get_dists(
+    dist_between_items_calculator, pop1_samples, pop2_samples, cached_dists=None
+):
+    if cached_dists is None:
+        samples_to_calc_dists_from = pop1_samples
+    else:
+        assert all(numpy.equal(pop2_samples, cached_dists.columns))
+        samples_to_calc_dists_from = pop1_samples[
+            numpy.logical_not(numpy.in1d(pop1_samples, cached_dists.index))
+        ]
+
+    if samples_to_calc_dists_from.size:
+        new_dists = _calc_pairwise_dists_between_pops(
+            dist_between_items_calculator,
+            pop1_samples=samples_to_calc_dists_from,
+            pop2_samples=pop2_samples,
+        )
+    else:
+        new_dists = None
+
+    if cached_dists is None:
+        cached_dists = new_dists
+        dists = new_dists
+    else:
+        if new_dists is not None:
+            cached_dists = pandas.concat([new_dists, cached_dists], axis="index")
+        dists = cached_dists.reindex(
+            index=pandas.Index(pop1_samples), columns=cached_dists.columns
+        )
+    return dists, cached_dists
+
+
+def _select_seed_samples_for_embedding(
+    dist_between_items_calculator, num_initial_samples, max_num_seed_expansions
+):
+    samples = numpy.array(dist_between_items_calculator.indi_names)
+    num_samples = samples.size
+    if not num_initial_samples:
+        num_initial_samples = int(round(math.log2(num_samples) ** 2))
+    seed_samples = numpy.array(random.sample(list(samples), k=num_initial_samples))
+
+    cached_dists = None
+    for _ in range(max_num_seed_expansions):
+        seed_dists, cached_dists = _get_dists(
+            dist_between_items_calculator,
+            pop1_samples=seed_samples,
+            pop2_samples=dist_between_items_calculator.indi_names,
+            cached_dists=None,
+        )
+
+        sample_idxs_with_max_dists_to_seeds = numpy.argmax(seed_dists.values, axis=1)
+        most_distant_samples = numpy.unique(
+            samples[sample_idxs_with_max_dists_to_seeds]
+        )
+        # print(most_distant_samples)
+        dists_to_most_distant_samples, cached_dists = _get_dists(
+            dist_between_items_calculator,
+            pop1_samples=most_distant_samples,
+            pop2_samples=dist_between_items_calculator.indi_names,
+            cached_dists=cached_dists,
+        )
+        samples_idxs_most_distant_to_most_distant_samples = numpy.argmax(
+            dists_to_most_distant_samples.values, axis=1
+        )
+        samples_most_distant_to_most_distant_samples = numpy.unique(
+            samples[samples_idxs_most_distant_to_most_distant_samples]
+        )
+        # print(samples_most_distant_to_most_distant_samples)
+        old_num_seeds = seed_samples.size
+        seed_samples = numpy.union1d(
+            seed_samples, samples_most_distant_to_most_distant_samples
+        )
+        new_num_seeds = seed_samples.size
+        if old_num_seeds == new_num_seeds:
+            break
+    return seed_samples, cached_dists
+
+
+def _calc_pairwise_dists_using_embedding(
+    dist_between_items_calculator, num_initial_samples=None, max_num_seed_expansions=5
+):
+    # following "Sequence embedding for fast construction of guide trees for multiple sequence alignment"
+    # Blackshields, Algorithms for Molecular Biology (2010). https://doi.org/10.1186/1748-7188-5-21
+    # https://almob.biomedcentral.com/articles/10.1186/1748-7188-5-21
+
+    seed_samples, cached_dists = _select_seed_samples_for_embedding(
+        dist_between_items_calculator, num_initial_samples, max_num_seed_expansions
+    )
+
+    dists_for_embedding, _ = _get_dists(
+        dist_between_items_calculator,
+        pop1_samples=seed_samples,
+        pop2_samples=dist_between_items_calculator.indi_names,
+        cached_dists=cached_dists,
+    )
+    names = dist_between_items_calculator.indi_names
+    dists_between_all_indis_and_some_ref_indis = pandas.DataFrame(
+        dists_for_embedding.T, index=names
+    )
+
+    return dists_between_all_indis_and_some_ref_indis
+
+
+def _calc_pairwise_dists(
+    dist_between_items_calculator,
+    accelerate_using_embedding=False,
+    suppress_warning=False,
+):
+    if accelerate_using_embedding:
+        if not suppress_warning:
+            warnings.warn(
+                "The distances calculated with the embedding acceleration will be correlated with the original distances, but will have different values"
+            )
+
+        dists_between_all_indis_and_some_ref_indis = (
+            _calc_pairwise_dists_using_embedding(dist_between_items_calculator)
+        )
+        dist_calculator = _EuclideanCalculator(
+            dists_between_all_indis_and_some_ref_indis,
+        )
+        dists = _calc_pairwise_dists_between_pops(dist_calculator)
+        dists = Distances(dists, names=dist_between_items_calculator.indi_names)
+    else:
+        dists = _calc_pairwise_dists_between_pops(dist_between_items_calculator)
+        dists = Distances(dists, names=dist_between_items_calculator.indi_names)
+    return dists
 
 
 def calc_kosman_pairwise_dists(gts: Genotypes):
     dist_between_items_calculator = _KosmanDistCalculator(gts=gts)
     return _calc_pairwise_dists(dist_between_items_calculator)
+
+
+def calc_kosman_pairwise_dists_accelerating_with_embedding(
+    gts: Genotypes, suppress_corr_warning=False
+):
+    dist_between_items_calculator = _KosmanDistCalculator(gts=gts)
+    return _calc_pairwise_dists(
+        dist_between_items_calculator,
+        accelerate_using_embedding=True,
+        suppress_warning=suppress_corr_warning,
+    )
+
+
+class _EuclideanCalculator:
+    def __init__(self, sample_data):
+        self.sample_data = sample_data
+        self.indi_names = list(sample_data.index)
+
+    def calc_dist_between_two_indis(self, indi_i, indi_j):
+        a = self.sample_data.iloc[indi_i, :]
+        b = self.sample_data.iloc[indi_j, :]
+        dist = numpy.linalg.norm(a - b)
+        return dist
+
+    @property
+    def num_items(self):
+        return len(self.indi_names)
+
+
+def calc_euclidean_pairwise_dists(sample_data: pandas.DataFrame):
+    dist_between_items_calculator = _EuclideanCalculator(sample_data=sample_data)
+    return _calc_pairwise_dists(
+        dist_between_items_calculator,
+        accelerate_using_embedding=False,
+    )
+
+
+def calc_euclidean_pairwise_dists_accelerating_with_embedding(
+    sample_data, suppress_corr_warning=False
+):
+    dist_between_items_calculator = _EuclideanCalculator(sample_data=sample_data)
+    return _calc_pairwise_dists(
+        dist_between_items_calculator,
+        accelerate_using_embedding=True,
+        suppress_warning=suppress_corr_warning,
+    )
