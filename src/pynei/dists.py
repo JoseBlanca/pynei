@@ -1,5 +1,5 @@
 import itertools
-from typing import Sequence
+from typing import Sequence, Callable
 import math
 import warnings
 
@@ -285,7 +285,7 @@ def calc_jost_dest_dist(
     return dest
 
 
-class KosmanDistCalculator:
+class _KosmanDistCalculator:
     def __init__(self, gts: Genotypes):
         """It calculates the pairwise distance between individuals using the Kosman-Leonard dist
 
@@ -313,7 +313,7 @@ class KosmanDistCalculator:
         gt_j = gt_j[is_called, ...]
         return gt_i, gt_j
 
-    def _calc_dist_between_two_indis(self, indi_i, indi_j):
+    def calc_dist_between_two_indis(self, indi_i, indi_j):
         gt_i, gt_j = self._get_sample_gts(indi_i, indi_j)
 
         if gt_i.shape[1] != 2:
@@ -330,50 +330,61 @@ class KosmanDistCalculator:
         result2 = numpy.full(result.shape, fill_value=0.5)
         result2[result == 0] = 1
         result2[result == 4] = 0
-        return result2.sum(), result2.shape[0]
+        return result2.sum() / result2.shape[0]
 
-    def calc_pairwise_dists(self):
-        dists = self._calc_pairwise_dists_between_pops()
-        return Distances(dists, names=self.indi_names)
+    @property
+    def num_items(self):
+        return len(self.indi_names)
 
-    def _calc_pairwise_dists_between_pops(self, pop1_samples=None, pop2_samples=None):
-        indi_names = self.indi_names
-        if pop1_samples is None:
-            n_samples = self.gt_array.shape[1]
-            num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
-            dists = numpy.zeros(num_dists_to_calculate)
-            n_snps_matrix = numpy.zeros(num_dists_to_calculate)
-        else:
-            shape = (len(pop1_samples), len(pop2_samples))
-            dists = numpy.zeros(shape)
-            n_snps_matrix = numpy.zeros(shape)
 
+def _calc_pairwise_dists_between_pops(
+    dist_between_items_calculator, pop1_samples=None, pop2_samples=None
+):
+    if pop1_samples is None:
+        n_samples = dist_between_items_calculator.num_items
+        num_dists_to_calculate = int((n_samples**2 - n_samples) / 2)
         dists = numpy.zeros(num_dists_to_calculate)
-        n_snps_matrix = numpy.zeros(num_dists_to_calculate)
+    else:
+        shape = (len(pop1_samples), len(pop2_samples))
+        dists = numpy.zeros(shape)
+
+    indi_names = dist_between_items_calculator.indi_names
+    calc_dist_between_two_indis = (
+        dist_between_items_calculator.calc_dist_between_two_indis
+    )
+
+    dists = numpy.zeros(num_dists_to_calculate)
+    if pop1_samples is None:
+        sample_combinations = itertools.combinations(range(n_samples), 2)
+    else:
+        pop1_indi_idxs = [
+            idx for idx, sample in enumerate(indi_names) if sample in pop1_samples
+        ]
+        pop2_indi_idxs = [
+            idx for idx, sample in enumerate(indi_names) if sample in pop2_samples
+        ]
+        sample_combinations = itertools.product(pop1_indi_idxs, pop2_indi_idxs)
+
+    index = 0
+    for sample_i, sample_j in sample_combinations:
+        dist = calc_dist_between_two_indis(sample_i, sample_j)
 
         if pop1_samples is None:
-            sample_combinations = itertools.combinations(range(n_samples), 2)
+            dists[index] = dist
+            index += 1
         else:
-            pop1_indi_idxs = [
-                idx for idx, sample in enumerate(indi_names) if sample in pop1_samples
-            ]
-            pop2_indi_idxs = [
-                idx for idx, sample in enumerate(indi_names) if sample in pop2_samples
-            ]
-            sample_combinations = itertools.product(pop1_indi_idxs, pop2_indi_idxs)
+            dists_samplei_idx = pop1_indi_idxs.index(sample_i)
+            dists_samplej_idx = pop2_indi_idxs.index(sample_j)
+            dists[dists_samplei_idx, dists_samplej_idx] = dist
 
-        index = 0
-        for sample_i, sample_j in sample_combinations:
-            dist, n_snps = self._calc_dist_between_two_indis(sample_i, sample_j)
+    return dists
 
-            if pop1_samples is None:
-                dists[index] = dist
-                n_snps_matrix[index] = n_snps
-                index += 1
-            else:
-                dists_samplei_idx = pop1_indi_idxs.index(sample_i)
-                dists_samplej_idx = pop2_indi_idxs.index(sample_j)
-                dists[dists_samplei_idx, dists_samplej_idx] = dist
-                n_snps_matrix[dists_samplei_idx, dists_samplej_idx] = n_snps
 
-        return dists / n_snps_matrix
+def _calc_pairwise_dists(dist_between_items_calculator):
+    dists = _calc_pairwise_dists_between_pops(dist_between_items_calculator)
+    return Distances(dists, names=dist_between_items_calculator.indi_names)
+
+
+def calc_kosman_pairwise_dists(gts: Genotypes):
+    dist_between_items_calculator = _KosmanDistCalculator(gts=gts)
+    return _calc_pairwise_dists(dist_between_items_calculator)

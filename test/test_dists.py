@@ -4,7 +4,8 @@ import pandas
 from pynei.dists import (
     Distances,
     calc_jost_dest_dist,
-    KosmanDistCalculator,
+    calc_kosman_pairwise_dists,
+    _KosmanDistCalculator,
 )
 from pynei import Genotypes
 
@@ -95,26 +96,24 @@ def test_kosman_2_indis():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    abs_distance, n_snps = KosmanDistCalculator(
-        Genotypes(gt_array)
-    )._calc_dist_between_two_indis(0, 1)
-    distance = abs_distance / n_snps
+    distance = _KosmanDistCalculator(Genotypes(gt_array)).calc_dist_between_two_indis(
+        0, 1
+    )
     assert distance == 1 / 3
 
     c = numpy.full(shape=(11, 2), fill_value=1, dtype=numpy.int16)
     d = numpy.full(shape=(11, 2), fill_value=1, dtype=numpy.int16)
     gt_array = numpy.stack((c, d), axis=1)
-    abs_distance, n_snps = KosmanDistCalculator(
-        Genotypes(gt_array)
-    )._calc_dist_between_two_indis(0, 1)
-    distance = abs_distance / n_snps
+    distance = _KosmanDistCalculator(Genotypes(gt_array)).calc_dist_between_two_indis(
+        0, 1
+    )
+
     assert distance == 0
 
     gt_array = numpy.stack((b, d), axis=1)
-    abs_distance, n_snps = KosmanDistCalculator(
-        Genotypes(gt_array)
-    )._calc_dist_between_two_indis(0, 1)
-    distance = abs_distance / n_snps
+    distance = _KosmanDistCalculator(Genotypes(gt_array)).calc_dist_between_two_indis(
+        0, 1
+    )
     assert distance == 0.45
 
 
@@ -150,10 +149,9 @@ def test_kosman_missing():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    abs_distance, n_snps = KosmanDistCalculator(
+    distance_ab = _KosmanDistCalculator(
         Genotypes(gt_array)
-    )._calc_dist_between_two_indis(0, 1)
-    distance_ab = abs_distance / n_snps
+    ).calc_dist_between_two_indis(0, 1)
 
     a = numpy.array(
         [
@@ -186,10 +184,9 @@ def test_kosman_missing():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    abs_distance, n_snps = KosmanDistCalculator(
+    distance_cd = _KosmanDistCalculator(
         Genotypes(gt_array)
-    )._calc_dist_between_two_indis(0, 1)
-    distance_cd = abs_distance / n_snps
+    ).calc_dist_between_two_indis(0, 1)
 
     assert distance_ab == distance_cd
 
@@ -231,7 +228,6 @@ def test_kosman_pairwise():
     gts = numpy.transpose(gts, axes=(1, 0, 2)).astype(numpy.int16)
     gts = Genotypes(gts, [1, 2, 3, 4])
 
-    pairwise_dist_calculator = KosmanDistCalculator(gts)
-    dists = pairwise_dist_calculator.calc_pairwise_dists()
     expected = [0.33333333, 0.75, 0.75, 0.5, 0.5, 0.0]
+    dists = calc_kosman_pairwise_dists(gts)
     assert numpy.allclose(dists.dist_vector, expected)
