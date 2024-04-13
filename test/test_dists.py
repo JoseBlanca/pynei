@@ -5,10 +5,8 @@ from pynei.dists import (
     Distances,
     calc_jost_dest_dist,
     calc_kosman_pairwise_dists,
-    calc_kosman_pairwise_dists_accelerating_with_embedding,
     _KosmanDistCalculator,
     calc_euclidean_pairwise_dists,
-    calc_euclidean_pairwise_dists_accelerating_with_embedding,
 )
 from pynei import Genotypes
 
@@ -235,9 +233,7 @@ def test_kosman_pairwise():
     dists = calc_kosman_pairwise_dists(gts)
     assert numpy.allclose(dists.dist_vector, expected)
 
-    dists_emb = calc_kosman_pairwise_dists_accelerating_with_embedding(
-        gts, suppress_corr_warning=True
-    )
+    dists_emb = calc_kosman_pairwise_dists(gts, use_approx_embedding_algorithm=True)
     dists = dists.square_dists
     dists_emb = dists_emb.square_dists
     dists_emb = dists_emb.loc[dists.index, :].loc[:, dists.index]
@@ -261,8 +257,8 @@ def test_emmbedding():
     samples = pandas.DataFrame(numpy.random.uniform(size=(num_samples, num_traits)))
 
     dists = calc_euclidean_pairwise_dists(samples)
-    dists_emb = calc_euclidean_pairwise_dists_accelerating_with_embedding(
-        samples, suppress_corr_warning=True
+    dists_emb = calc_euclidean_pairwise_dists(
+        samples, use_approx_embedding_algorithm=True
     )
     dists = dists.square_dists
     dists_emb = dists_emb.square_dists.loc[dists.index, :].loc[:, dists.index]

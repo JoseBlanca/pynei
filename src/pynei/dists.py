@@ -496,15 +496,9 @@ def _calc_pairwise_dists_using_embedding(
 
 def _calc_pairwise_dists(
     dist_between_items_calculator,
-    accelerate_using_embedding=False,
-    suppress_warning=False,
+    use_approx_embedding_algorithm=False,
 ):
-    if accelerate_using_embedding:
-        if not suppress_warning:
-            warnings.warn(
-                "The distances calculated with the embedding acceleration will be correlated with the original distances, but will have different values"
-            )
-
+    if use_approx_embedding_algorithm:
         dists_between_all_indis_and_some_ref_indis = (
             _calc_pairwise_dists_using_embedding(dist_between_items_calculator)
         )
@@ -519,19 +513,11 @@ def _calc_pairwise_dists(
     return dists
 
 
-def calc_kosman_pairwise_dists(gts: Genotypes):
-    dist_between_items_calculator = _KosmanDistCalculator(gts=gts)
-    return _calc_pairwise_dists(dist_between_items_calculator)
-
-
-def calc_kosman_pairwise_dists_accelerating_with_embedding(
-    gts: Genotypes, suppress_corr_warning=False
-):
+def calc_kosman_pairwise_dists(gts: Genotypes, use_approx_embedding_algorithm=False):
     dist_between_items_calculator = _KosmanDistCalculator(gts=gts)
     return _calc_pairwise_dists(
         dist_between_items_calculator,
-        accelerate_using_embedding=True,
-        suppress_warning=suppress_corr_warning,
+        use_approx_embedding_algorithm=use_approx_embedding_algorithm,
     )
 
 
@@ -551,20 +537,11 @@ class _EuclideanCalculator:
         return len(self.indi_names)
 
 
-def calc_euclidean_pairwise_dists(sample_data: pandas.DataFrame):
-    dist_between_items_calculator = _EuclideanCalculator(sample_data=sample_data)
-    return _calc_pairwise_dists(
-        dist_between_items_calculator,
-        accelerate_using_embedding=False,
-    )
-
-
-def calc_euclidean_pairwise_dists_accelerating_with_embedding(
-    sample_data, suppress_corr_warning=False
+def calc_euclidean_pairwise_dists(
+    sample_data: pandas.DataFrame, use_approx_embedding_algorithm=False
 ):
     dist_between_items_calculator = _EuclideanCalculator(sample_data=sample_data)
     return _calc_pairwise_dists(
         dist_between_items_calculator,
-        accelerate_using_embedding=True,
-        suppress_warning=suppress_corr_warning,
+        use_approx_embedding_algorithm=use_approx_embedding_algorithm,
     )
