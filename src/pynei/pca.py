@@ -2,7 +2,7 @@ import numpy
 import pandas
 
 from .genotypes import Genotypes
-from .dists import Distances
+from .dists import Distances, calc_kosman_pairwise_dists
 
 
 def _create_pc_names(num_prin_comps):
@@ -142,3 +142,10 @@ def do_pcoa(dists: Distances):
         ),
         "explained_variance (%)": pandas.Series(pcnts, index=prin_comps_names),
     }
+
+
+def do_pcoa_with_genotypes(gts: Genotypes, use_approx_embedding_algorithm=False):
+    dists = calc_kosman_pairwise_dists(
+        gts, use_approx_embedding_algorithm=use_approx_embedding_algorithm
+    )
+    return do_pcoa(dists)
