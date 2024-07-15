@@ -113,7 +113,8 @@ def _calc_exp_het_per_var(
         pop_freqs = res[pop]["allelic_freqs"]
         nei_per_var = 1 - numpy.sum((pop_freqs**2).values, axis=1)
         if unbiased:
-            num_indis = len(pops[pop])
+            num_indis = res[pop]["num_indis"]
+
             num_indis_per_var = num_indis - (
                 res[pop]["missing_gts_per_var"] / gts.ploidy
             )

@@ -96,6 +96,7 @@ class Genotypes:
             result[pop_id] = {
                 "allele_counts": allele_counts,
                 "missing_gts_per_var": missing_counts,
+                "num_indis": numpy.sum(pop_mask),
             }
 
             if calc_freqs:

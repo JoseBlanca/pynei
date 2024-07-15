@@ -92,3 +92,6 @@ def test_calc_exp_het():
 
     nei = calc_exp_het(gts, pops=pops, min_num_genotypes=1, unbiased=False)
     assert numpy.allclose(nei.values, [0.3125, 0.2500])
+
+    nei = calc_exp_het(gts, min_num_genotypes=1)
+    assert numpy.allclose(nei.values, [0.422619])
