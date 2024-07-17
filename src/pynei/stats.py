@@ -30,6 +30,26 @@ def calc_major_allele_freqs(
     return freqs
 
 
+def calc_allele_freq_spectrum(
+    gts: Genotypes,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_genotypes=MIN_NUM_GENOTYPES_FOR_POP_STAT,
+    allele_freq_range=(0, 1),
+    num_bins=20,
+):
+    mafs_per_var = calc_major_allele_freqs(
+        gts=gts, pops=pops, min_num_genotypes=min_num_genotypes
+    )
+    bin_edges = numpy.linspace(*allele_freq_range, num_bins + 1)
+
+    afs = {}
+    for pop, mafs_per_var_for_pop in mafs_per_var.items():
+        counts, _ = numpy.histogram(mafs_per_var_for_pop, bins=bin_edges)
+        afs[pop] = counts
+    afs = pandas.DataFrame(afs)
+    return {"counts": afs, "bin_edges": bin_edges}
+
+
 def calc_poly_vars_ratio(
     gts: Genotypes,
     poly_threshold=DEF_POLY_THRESHOLD,

@@ -6,6 +6,7 @@ from pynei import (
     calc_obs_het,
     calc_poly_vars_ratio,
     calc_exp_het,
+    calc_allele_freq_spectrum,
 )
 from pynei.config import DEFAULT_NAME_POP_ALL_INDIS
 
@@ -47,6 +48,16 @@ def test_calc_major_allele_freqs():
     expected = [[0.57142857, 0.55555556], [0.55555556, numpy.nan], [0.4, 0.5]]
     assert numpy.allclose(res.values, numpy.array(expected), equal_nan=True)
     assert list(res.columns) == ["pop1", "pop2"]
+
+    res = calc_allele_freq_spectrum(
+        gts,
+        min_num_genotypes=3,
+        pops={"pop1": list(range(5)), "pop2": list(range(5, 11))},
+    )
+    expected = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
+    assert numpy.all(numpy.equal(res["counts"]["pop1"], expected))
+    expected = numpy.linspace(0, 1, 21)
+    assert numpy.allclose(list(res["bin_edges"]), expected)
 
     res = calc_poly_vars_ratio(
         gts,
