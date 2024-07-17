@@ -48,13 +48,14 @@ def test_calc_major_allele_freqs():
     assert numpy.allclose(res.values, numpy.array(expected), equal_nan=True)
     assert list(res.columns) == ["pop1", "pop2"]
 
-    poly_ratio = calc_poly_vars_ratio(
+    res = calc_poly_vars_ratio(
         gts,
         poly_threshold=0.51,
         min_num_genotypes=3,
         pops={"pop1": list(range(5)), "pop2": list(range(5, 11))},
     )
-    assert numpy.allclose(poly_ratio.values, [0.333333, 0.5])
+    assert numpy.allclose(res["poly_ratio"].values, [0.333333, 0.5])
+    assert numpy.allclose(res["num_variable"].values, [3, 2])
 
 
 def test_calc_obs_het():

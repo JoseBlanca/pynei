@@ -40,9 +40,18 @@ def calc_poly_vars_ratio(
         gts=gts, pops=pops, min_num_genotypes=min_num_genotypes
     )
     num_not_nas = mafs.notna().sum(axis=0)
+    num_variable = (mafs < 1).sum(axis=0)
     num_poly = (mafs < poly_threshold).sum(axis=0)
     poly_ratio = num_poly / num_not_nas
-    return poly_ratio
+    poly_ratio2 = num_poly / num_variable
+    res = {
+        "num_poly": num_poly,
+        "poly_ratio": poly_ratio,
+        "poly_ratio_over_variables": poly_ratio2,
+        "num_variable": num_variable,
+        "tot_num_variants_with_data": num_not_nas,
+    }
+    return res
 
 
 def _calc_obs_het_per_var(
