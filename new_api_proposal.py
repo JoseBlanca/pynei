@@ -49,9 +49,6 @@ class Variants:
             return self._chunks_iter
 
     @property
-    def num_variants(self): ...
-
-    @property
     def samples(self): ...
 
     @classmethod
