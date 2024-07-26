@@ -3,7 +3,7 @@ import pandas
 import pytest
 
 from pynei.variants import VariantsChunk
-from pynei.config import CHROM_VARIANTS_COL, POS_VARIANTS_COL, PANDAS_STRING_STORAGE
+from pynei.config import CHROM_VARIANTS_COL, POS_VARIANTS_COL
 
 
 def test_chunk():
