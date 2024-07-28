@@ -1,3 +1,6 @@
+from typing import Iterator, Self
+import itertools
+
 import numpy
 import pandas
 
@@ -5,6 +8,7 @@ from .config import (
     PANDAS_STRING_STORAGE,
     PANDAS_FLOAT_DTYPE,
     PANDAS_INT_DTYPE,
+    DEF_NUM_VARIANTS_PER_CHUNK,
 )
 
 
@@ -86,3 +90,52 @@ class VariantsChunk:
     @property
     def gts(self):
         return self._gt_array
+
+
+class Variants:
+    def __init__(
+        self, variants_chunks: Iterator[VariantsChunk], store_chunks_in_memory=False
+    ):
+        variants_chunks = iter(variants_chunks)
+        if store_chunks_in_memory:
+            self._variants_chunks = list(variants_chunks)
+            self._chunks_iter = None
+        else:
+            self._variants_chunks = None
+            self._chunks_iter = variants_chunks
+
+    def _get_orig_variants_iter(self):
+        if self._variants_chunks is not None:
+            return iter(self._variants_chunks)
+        else:
+            return self._chunks_iter
+
+    def _get_first_chunk(self):
+        if self._variants_chunks is not None:
+            chunk = self._variants_chunks[0]
+        else:
+            try:
+                chunk = next(self._chunks_iter)
+            except StopIteration:
+                raise RuntimeError("No variants_chunks available")
+            self._chunks_iter = itertools.chain([chunk], self._chunks_iter)
+        return chunk
+
+    def iterate_over_variants_chunks(
+        self, num_variants_per_chunk=DEF_NUM_VARIANTS_PER_CHUNK
+    ) -> Iterator[VariantsChunk]:
+        # TODO make sure that it returns chunks of the right size
+        return self._get_orig_variants_iter()
+
+    @property
+    def samples(self):
+        return self._get_first_chunk().samples
+
+    @classmethod
+    def from_gt_array(
+        cls,
+        gts: numpy.array,
+        samples: list[str] | None = None,
+    ) -> Self:
+        chunk = VariantsChunk(gts=gts, samples=samples)
+        return cls(variants_chunks=[chunk], store_chunks_in_memory=True)

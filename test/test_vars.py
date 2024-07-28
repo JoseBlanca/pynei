@@ -2,7 +2,7 @@ import numpy
 import pandas
 import pytest
 
-from pynei.variants import VariantsChunk
+from pynei.variants import VariantsChunk, Variants
 from pynei.config import CHROM_VARIANTS_COL, POS_VARIANTS_COL
 
 
@@ -46,3 +46,16 @@ def test_chunk_different_num_rows():
     VariantsChunk(gts=gt_array, samples=["a", "b", "c", "d"])
     with pytest.raises(ValueError):
         VariantsChunk(gts=gt_array, samples=["a", "b"])
+
+
+def test_variants_from_gts():
+    num_vars = 3
+    num_samples = 4
+    samples = ["a", "b", "c", "d"]
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    variants = Variants.from_gt_array(gt_array, samples=samples)
+    assert variants.samples == samples
+    assert numpy.array_equal(
+        next(variants.iterate_over_variants_chunks()).gts, gt_array
+    )
