@@ -56,13 +56,29 @@ def test_variants_from_gts():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
     variants = Variants.from_gt_array(gt_array, samples=samples)
     assert variants.samples == samples
-    assert numpy.array_equal(
-        next(variants.iterate_over_variants_chunks()).gts, gt_array
-    )
+    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts, gt_array)
 
     chunk = VariantsChunk(gts=gt_array, samples=samples)
-    variants = Variants(variants_chunks=[chunk])
+    variants = Variants(vars_chunks=[chunk])
     assert variants.samples == samples
-    assert numpy.array_equal(
-        next(variants.iterate_over_variants_chunks()).gts, gt_array
-    )
+    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts, gt_array)
+
+
+def test_chunk_size():
+    num_vars = 100
+    num_samples = 3
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    chunk = VariantsChunk(gts=gt_array)
+    variants = Variants(vars_chunks=[chunk], store_chunks_in_memory=True)
+    chunks = list(variants.iter_vars_chunks(num_vars_per_chunk=10))
+    print(chunks[0].num_vars)
+    print(len(chunks))
+
+    chunks = list(variants.iter_vars_chunks(num_vars_per_chunk=100))
+    print(chunks[0].num_vars)
+    print(len(chunks))
+
+    chunks = list(variants.iter_vars_chunks(num_vars_per_chunk=200))
+    print(chunks[0].num_vars)
+    print(len(chunks))

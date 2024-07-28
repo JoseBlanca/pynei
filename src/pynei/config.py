@@ -12,4 +12,4 @@ PANDAS_STRING_STORAGE = (
     "python"  # when pyodide supports pyarrow, we will change this to 'pyarrow'
 )
 # PANDAS_STRING_STORAGE = "pyarrow"
-DEF_NUM_VARIANTS_PER_CHUNK = 10000
+DEF_NUM_VARS_PER_CHUNK = 10000
