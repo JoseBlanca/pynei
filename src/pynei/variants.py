@@ -37,15 +37,12 @@ class Genotypes:
                 unique_elements, counts = numpy.unique(samples, return_counts=True)
                 duplicated_samples = unique_elements[counts > 1]
                 raise ValueError(f"Duplicated sample names: {duplicated_samples}")
+            samples.flags.writeable = False
 
-        else:
-            samples = numpy.arange(gt_array.shape[1])
-        samples.flags.writeable = False
-
-        if gt_array.shape[1] != samples.size:
-            raise ValueError(
-                f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({samples.size}) do not match"
-            )
+            if gt_array.shape[1] != samples.size:
+                raise ValueError(
+                    f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({samples.size}) do not match"
+                )
 
         self._gts = gt_array
         self._samples = samples
@@ -81,6 +78,9 @@ class Genotypes:
         return self.__class__(gt_array=gts, samples=self.samples)
 
     def get_samples(self, samples: Sequence[str] | Sequence[int]) -> Self:
+        if self.samples is None:
+            raise ValueError("Cannot get samples from Genotypes without samples")
+
         if not isinstance(samples, SequenceABC):
             raise ValueError("samples must be a sequence")
         index = numpy.where(numpy.isin(self.samples, samples))[0]

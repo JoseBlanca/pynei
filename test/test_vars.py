@@ -15,8 +15,8 @@ def test_gts():
     assert gts.num_vars == num_vars
     assert gts.num_samples == num_samples
     assert gts.ploidy == ploidy
-    assert numpy.array_equal(gts.samples, numpy.arange(num_samples))
     assert numpy.array_equal(gts.gt_array, gt_array)
+    assert gts.samples is None
 
     gts = Genotypes(gt_array, samples=["a", "b", "c", "d"])
     vars_slice = [1, 2]
