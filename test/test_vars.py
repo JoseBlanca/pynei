@@ -97,13 +97,19 @@ def test_chunk_size():
     chunk = VariantsChunk(gts=Genotypes(gt_array))
     variants = Variants(vars_chunks=[chunk], store_chunks_in_memory=True)
     chunks = list(variants.iter_vars_chunks(desired_num_vars_per_chunk=10))
-    print(chunks[0].num_vars)
-    print(len(chunks))
+    assert [chunk.num_vars for chunk in chunks] == [10] * 10
 
     chunks = list(variants.iter_vars_chunks(desired_num_vars_per_chunk=100))
-    print(chunks[0].num_vars)
-    print(len(chunks))
+    assert [chunk.num_vars for chunk in chunks] == [100]
 
     chunks = list(variants.iter_vars_chunks(desired_num_vars_per_chunk=200))
-    print(chunks[0].num_vars)
-    print(len(chunks))
+    assert [chunk.num_vars for chunk in chunks] == [100]
+
+    num_vars = 15
+    num_samples = 3
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    chunk = VariantsChunk(gts=Genotypes(gt_array))
+    variants = Variants(vars_chunks=[chunk], store_chunks_in_memory=True)
+    chunks = list(variants.iter_vars_chunks(desired_num_vars_per_chunk=10))
+    assert [chunk.num_vars for chunk in chunks] == [10, 5]
