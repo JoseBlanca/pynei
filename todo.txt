@@ -1,3 +1,5 @@
 LD
-PCA
-PCoA
+
+tips for reading large files:
+- csv read with pandas.read_csv chunksize, usecols, engine=pyarrow
+- https://textual.textualize.io/blog/2024/02/11/file-magic-with-the-python-standard-library/
