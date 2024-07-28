@@ -59,3 +59,10 @@ def test_variants_from_gts():
     assert numpy.array_equal(
         next(variants.iterate_over_variants_chunks()).gts, gt_array
     )
+
+    chunk = VariantsChunk(gts=gt_array, samples=samples)
+    variants = Variants(variants_chunks=[chunk])
+    assert variants.samples == samples
+    assert numpy.array_equal(
+        next(variants.iterate_over_variants_chunks()).gts, gt_array
+    )
