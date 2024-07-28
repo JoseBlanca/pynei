@@ -66,23 +66,23 @@ class VariantsChunk:
             if len(samples) != gts.shape[1]:
                 raise ValueError("There has to be as many samples gts.shape[1]")
 
-        self.gt_array = gts
-        self.variants_info = variants_info
-        self.alleles = alleles
+        self._gt_array = gts
+        self._variants_info = variants_info
+        self._alleles = alleles
         self.samples = samples
 
     @property
     def num_vars(self):
-        return self.gt_array.shape[0]
+        return self._gt_array.shape[0]
 
     @property
     def num_samples(self):
-        return self.gt_array.shape[1]
+        return self._gt_array.shape[1]
 
     @property
     def ploidy(self):
-        return self.gt_array.shape[2]
+        return self._gt_array.shape[2]
 
     @property
     def gts(self):
-        return self.gts
+        return self._gt_array
