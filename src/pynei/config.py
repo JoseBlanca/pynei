@@ -1,3 +1,5 @@
+from enum import Enum
+
 import pandas
 
 MISSING_ALLELE = -1
@@ -13,3 +15,7 @@ PANDAS_STRING_STORAGE = (
 )
 # PANDAS_STRING_STORAGE = "pyarrow"
 DEF_NUM_VARS_PER_CHUNK = 10000
+LINEAL = "lineal"
+LOGARITHMIC = "logarithmic"
+BinType = Enum("BinType", [LINEAL, LOGARITHMIC])
+DEF_POP_NAME = "pop"

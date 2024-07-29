@@ -15,11 +15,15 @@ class _ChunkProcessor:
 
 
 class Pipeline:
-    def __init__(self):
-        self.map_functs = []
-        self.reduce_funct = None
-        self.reduce_initializer = None
-        self.num_processes = 1
+    def __init__(
+        self,
+        map_functs: list[Callable] | None = None,
+        reduce_funct: Callable = None,
+        reduce_initializer=None,
+    ):
+        self.map_functs = map_functs
+        self.reduce_funct = reduce_funct
+        self.reduce_initializer = reduce_initializer
 
     def append_map_funct(self, map_funct: Callable):
         self.map_functs.append(map_funct)
@@ -43,7 +47,7 @@ class Pipeline:
 
         if self.reduce_funct is not None:
             reduced_result = functools.reduce(
-                self.reduce_funct, processed_chunks, self.reduce_initialializer
+                self.reduce_funct, processed_chunks, self.reduce_initializer
             )
             result = reduced_result
         else:
