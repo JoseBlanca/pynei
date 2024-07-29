@@ -235,3 +235,48 @@ def _count_alleles_per_var(
             result[pop_id]["allelic_freqs"] = allelic_freqs_per_snp
 
     return {"counts": result, "alleles": alleles_in_chunk}
+
+
+def _calc_maf_per_var(
+    chunk,
+    pops,
+    missing_gt=MISSING_ALLELE,
+    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+):
+    res = _count_alleles_per_var(
+        chunk,
+        pops,
+        alleles=None,
+        missing_gt=missing_gt,
+        calc_freqs=True,
+        min_num_samples=min_num_samples,
+    )
+    major_allele_freqs = {}
+    for pop, pop_res in res["counts"].items():
+        pop_allelic_freqs = pop_res["allelic_freqs"]
+        major_allele_freqs[pop] = pop_allelic_freqs.max(axis=1)
+    major_allele_freqs = pandas.DataFrame(major_allele_freqs)
+    return {"major_allele_freqs_per_var": major_allele_freqs}
+
+
+def calc_major_allele_stats_per_var(
+    variants,
+    pops: list[str] | None = None,
+    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+    hist_kwargs=None,
+):
+    if hist_kwargs is None:
+        hist_kwargs = {}
+    hist_kwargs["range"] = hist_kwargs.get("range", (0, 1))
+
+    samples = variants.samples
+    pops = _calc_pops_idxs(pops, samples)
+
+    return _calc_stats_per_var(
+        variants=variants,
+        calc_stats_for_chunk=partial(
+            _calc_maf_per_var, pops=pops, min_num_samples=min_num_samples
+        ),
+        get_stats_for_chunk_result=lambda x: x["major_allele_freqs_per_var"],
+        hist_kwargs=hist_kwargs,
+    )
