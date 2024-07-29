@@ -19,3 +19,4 @@ LINEAL = "lineal"
 LOGARITHMIC = "logarithmic"
 BinType = Enum("BinType", [LINEAL, LOGARITHMIC])
 DEF_POP_NAME = "pop"
+MIN_NUM_SAMPLES_FOR_POP_STAT = 20

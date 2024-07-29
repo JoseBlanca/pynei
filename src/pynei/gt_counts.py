@@ -4,7 +4,14 @@ import numpy
 import pandas
 
 from pynei.pipeline import Pipeline
-from pynei.config import MISSING_ALLELE, BinType, LINEAL, LOGARITHMIC, DEF_POP_NAME
+from pynei.config import (
+    MISSING_ALLELE,
+    BinType,
+    LINEAL,
+    LOGARITHMIC,
+    DEF_POP_NAME,
+    MIN_NUM_SAMPLES_FOR_POP_STAT,
+)
 from pynei.variants import Variants
 
 
@@ -170,3 +177,61 @@ def calc_obs_het_stats_per_var(
         get_stats_for_chunk_result=lambda x: x["obs_het_per_var"],
         hist_kwargs=hist_kwargs,
     )
+
+
+def _count_alleles_per_var(
+    chunk,
+    pops: dict[str, list[int]],
+    calc_freqs: bool,
+    alleles=None,
+    missing_gt=MISSING_ALLELE,
+    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+):
+    gts = chunk.gts.gt_array
+    alleles_in_chunk = set(numpy.unique(gts)).difference([missing_gt])
+    ploidy = chunk.ploidy
+
+    if alleles is not None:
+        if alleles_in_chunk.difference(alleles):
+            raise RuntimeError(
+                f"These gts have alleles ({alleles_in_chunk}) not present in the given ones ({alleles})"
+            )
+    alleles = sorted(alleles_in_chunk)
+
+    result = {}
+    for pop_id, pop_slice in pops.items():
+        pop_gts = gts[:, pop_slice, :]
+        allele_counts = numpy.empty(
+            shape=(pop_gts.shape[0], len(alleles)), dtype=numpy.int64
+        )
+        missing_counts = None
+        for idx, allele in enumerate([missing_gt] + alleles):
+            allele_counts_per_row = numpy.sum(pop_gts == allele, axis=(1, 2))
+            if idx == 0:
+                missing_counts = allele_counts_per_row
+            else:
+                allele_counts[:, idx - 1] = allele_counts_per_row
+        allele_counts = pandas.DataFrame(allele_counts, columns=alleles)
+
+        result[pop_id] = {
+            "allele_counts": allele_counts,
+            "missing_gts_per_var": missing_counts,
+        }
+
+        if calc_freqs:
+            expected_num_allelic_gts_in_snp = pop_gts.shape[1] * pop_gts.shape[2]
+            num_allelic_gts_per_snp = expected_num_allelic_gts_in_snp - missing_counts
+            num_allelic_gts_per_snp = num_allelic_gts_per_snp.reshape(
+                (num_allelic_gts_per_snp.shape[0], 1)
+            )
+            allelic_freqs_per_snp = allele_counts / num_allelic_gts_per_snp
+            num_gts_per_snp = (
+                num_allelic_gts_per_snp.reshape((num_allelic_gts_per_snp.size,))
+                / ploidy
+            )
+            not_enough_data = num_gts_per_snp < min_num_samples
+            allelic_freqs_per_snp[not_enough_data] = numpy.nan
+
+            result[pop_id]["allelic_freqs"] = allelic_freqs_per_snp
+
+    return {"counts": result, "alleles": alleles_in_chunk}
