@@ -3,10 +3,7 @@ from functools import partial
 import numpy
 import pandas
 
-from pynei.config import (
-    MISSING_ALLELE,
-    MIN_NUM_SAMPLES_FOR_POP_STAT,
-)
+from pynei.config import MISSING_ALLELE, MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME
 from pynei.variants import Variants
 from pynei.utils_pop import _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
@@ -82,8 +79,8 @@ def calc_obs_het_stats_per_var(
 
 def _count_alleles_per_var(
     chunk,
-    pops: dict[str, list[int]],
     calc_freqs: bool,
+    pops: dict[str, list[int]] | None = None,
     alleles=None,
     missing_gt=MISSING_ALLELE,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
@@ -91,6 +88,9 @@ def _count_alleles_per_var(
     gts = chunk.gts.gt_array
     alleles_in_chunk = set(numpy.unique(gts)).difference([missing_gt])
     ploidy = chunk.ploidy
+
+    if pops is None:
+        pops = {DEF_POP_NAME: slice(None, None)}
 
     if alleles is not None:
         if alleles_in_chunk.difference(alleles):
@@ -146,7 +146,7 @@ def _calc_maf_per_var(
 ):
     res = _count_alleles_per_var(
         chunk,
-        pops,
+        pops=pops,
         alleles=None,
         missing_gt=missing_gt,
         calc_freqs=True,

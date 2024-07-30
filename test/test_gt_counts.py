@@ -50,8 +50,8 @@ def test_obs_het_stats():
     assert sorted(res["obs_het_per_var"].columns) == ["pop1", "pop2"]
     assert res["obs_het_per_var"].values.shape == (3, 2)
 
-    res = calc_obs_het_stats_per_var(vars, hist_kwargs={"num_bins": 4})
     pop_name = pynei.config.DEF_POP_NAME
+    res = calc_obs_het_stats_per_var(vars, hist_kwargs={"num_bins": 4})
     assert numpy.allclose(res["mean"].loc[pop_name], [0.5])
     assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
     assert all(res["hist_counts"][pop_name] == [0, 1, 1, 0])
@@ -103,7 +103,32 @@ def test_count_alleles_per_var():
         [numpy.nan, numpy.nan, numpy.nan, numpy.nan],
     ]
     assert numpy.allclose(
-        res["counts"][0]["allelic_freqs"].values, expected_freqs, equal_nan=True
+        res["counts"][0]["allelic_freqs"], expected_freqs, equal_nan=True
+    )
+
+    pop_name = pynei.config.DEF_POP_NAME
+    numpy.random.seed(42)
+    gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
+    vars = Variants.from_gt_array(gt_array)
+    chunk = next(vars.iter_vars_chunks())
+    res = _count_alleles_per_var(chunk, calc_freqs=False, min_num_samples=1)
+    assert numpy.all(
+        res["counts"][pop_name]["allele_counts"].values == [[4, 2], [5, 1]]
+    )
+    assert numpy.all(res["counts"][pop_name]["missing_gts_per_var"] == [0, 0])
+
+    gt_array = numpy.random.randint(-1, 2, size=(2, 10, 2))
+    vars = Variants.from_gt_array(gt_array)
+    chunk = next(vars.iter_vars_chunks())
+    res = _count_alleles_per_var(chunk, calc_freqs=True, min_num_samples=7)
+    assert numpy.all(
+        res["counts"][pop_name]["allele_counts"].values == [[7, 6], [7, 8]]
+    )
+    assert numpy.all(res["counts"][pop_name]["missing_gts_per_var"] == [7, 5])
+    assert numpy.allclose(
+        res["counts"][pop_name]["allelic_freqs"].values,
+        [[numpy.nan, numpy.nan], [0.46666667, 0.53333333]],
+        equal_nan=True,
     )
 
 
