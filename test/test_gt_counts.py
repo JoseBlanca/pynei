@@ -157,3 +157,28 @@ def test_maf_stats():
     assert numpy.allclose(res["mean"].loc[pop_name], [0.535714])
     assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
     assert all(res["hist_counts"][pop_name] == [0, 0, 2, 0])
+
+    numpy.random.seed(42)
+    gt_array = numpy.random.randint(-1, 3, size=(3, 10, 2))
+    vars = Variants.from_gt_array(gt_array, samples=list(range(0, 10)))
+    chunk = next(vars.iter_vars_chunks())
+    res = _calc_maf_per_var(
+        chunk,
+        pops={"pop1": slice(5), "pop2": slice(5, 10)},
+        min_num_samples=3,
+    )
+    expected = [[0.57142857, 0.55555556], [0.55555556, numpy.nan], [0.4, 0.5]]
+    mafs = res["major_allele_freqs_per_var"]
+    assert numpy.allclose(mafs.values, numpy.array(expected), equal_nan=True)
+    assert list(mafs.columns) == ["pop1", "pop2"]
+
+    res = calc_major_allele_stats_per_var(
+        vars,
+        hist_kwargs={"num_bins": 20},
+        min_num_samples=3,
+        pops={"pop1": list(range(5)), "pop2": list(range(4, 10))},
+    )
+    expected = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
+    assert numpy.all(numpy.equal(res["hist_counts"]["pop1"], expected))
+    expected = numpy.linspace(0, 1, 21)
+    assert numpy.allclose(list(res["hist_bin_edges"]), expected)
