@@ -177,8 +177,13 @@ class VariantsChunk:
 
 class Variants:
     def __init__(
-        self, vars_chunks: Iterator[VariantsChunk], store_chunks_in_memory=False
+        self,
+        vars_chunks: Iterator[VariantsChunk],
+        store_chunks_in_memory=False,
+        desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
     ):
+        self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
+
         vars_chunks = iter(vars_chunks)
         self._first_chunk = None
         if store_chunks_in_memory:
@@ -208,11 +213,9 @@ class Variants:
             self._first_chunk = chunk
         return chunk
 
-    def iter_vars_chunks(
-        self, desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK
-    ) -> Iterator[VariantsChunk]:
+    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
         return _resize_chunks(
-            self._get_orig_vars_iter(), desired_num_rows=desired_num_vars_per_chunk
+            self._get_orig_vars_iter(), desired_num_rows=self.desired_num_vars_per_chunk
         )
 
     @property
