@@ -1,12 +1,18 @@
 from functools import partial
+from typing import Sequence
 
 import numpy
 import pandas
 
-from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT
-from pynei.gt_counts import _count_alleles_per_var
+from pynei.config import (
+    MIN_NUM_SAMPLES_FOR_POP_STAT,
+    DEF_POLY_THRESHOLD,
+    MISSING_ALLELE,
+)
+from pynei.gt_counts import _count_alleles_per_var, _calc_maf_per_var
 from pynei.utils_pop import _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
+from pynei.pipeline import Pipeline
 
 
 def _calc_exp_het_per_var(
@@ -83,7 +89,7 @@ def _calc_unbiased_exp_het_per_var(
 
 def calc_exp_het_stats_per_var(
     variants,
-    pops: dict[str, list[str]] | None = None,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
     ploidy=None,
     hist_kwargs=None,
@@ -112,3 +118,77 @@ def calc_exp_het_stats_per_var(
         get_stats_for_chunk_result=lambda x: x["exp_het"],
         hist_kwargs=hist_kwargs,
     )
+
+
+def _calc_num_poly_vars(
+    chunk,
+    poly_threshold=DEF_POLY_THRESHOLD,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+):
+    res = _calc_maf_per_var(
+        chunk,
+        pops=pops,
+        missing_gt=MISSING_ALLELE,
+        min_num_samples=min_num_samples,
+    )
+    mafs = res["major_allele_freqs_per_var"]
+
+    num_not_nas = mafs.notna().sum(axis=0)
+    num_variable = (mafs < 1).sum(axis=0)
+    num_poly = (mafs < poly_threshold).sum(axis=0)
+    res = {
+        "num_poly": num_poly,
+        "num_variable": num_variable,
+        "tot_num_variants_with_data": num_not_nas,
+    }
+    return res
+
+
+def _accumulate_pop_sums(
+    accumulated_result: pandas.DataFrame | None, next_result: pandas.DataFrame
+):
+    if accumulated_result is None:
+        accumulated_result = next_result
+    else:
+        accumulated_result = {
+            param: accumulated_result[param] + values
+            for param, values in next_result.items()
+        }
+    return accumulated_result
+
+
+def calc_poly_vars_ratio_per_var(
+    variants,
+    poly_threshold=DEF_POLY_THRESHOLD,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+):
+    calc_num_poly_vars = partial(
+        _calc_num_poly_vars,
+        poly_threshold=poly_threshold,
+        pops=pops,
+        min_num_samples=min_num_samples,
+    )
+
+    pipeline = Pipeline(
+        map_functs=[calc_num_poly_vars],
+        reduce_funct=_accumulate_pop_sums,
+    )
+    res = pipeline.map_and_reduce(variants)
+
+    num_poly = res["num_poly"]
+    num_variable = res["num_variable"]
+    num_not_nas = res["tot_num_variants_with_data"]
+
+    poly_ratio = num_poly / num_not_nas
+    poly_ratio2 = num_poly / num_variable
+
+    res = {
+        "num_poly": num_poly,
+        "poly_ratio": poly_ratio,
+        "poly_ratio_over_variables": poly_ratio2,
+        "num_variable": num_variable,
+        "tot_num_variants_with_data": num_not_nas,
+    }
+    return res
