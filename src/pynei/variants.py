@@ -147,6 +147,10 @@ class VariantsChunk:
         return self._arrays["gts"].num_samples
 
     @property
+    def samples(self):
+        return self._arrays["gts"].samples
+
+    @property
     def ploidy(self):
         return self._arrays["gts"].ploidy
 
