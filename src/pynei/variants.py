@@ -1,4 +1,4 @@
-from typing import Iterator, Self, Sequence
+from typing import Iterator, Self, Sequence, Protocol
 from collections.abc import Sequence as SequenceABC
 import itertools
 
@@ -179,43 +179,46 @@ class VariantsChunk:
         return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
 
 
+class ArrayIterFactory(Protocol):
+    def peek_first_chunk(self) -> VariantsChunk:
+        # It might raise a RuntimeError if it is called after calling iter_vars_chunks
+        pass
+
+    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
+        # It might raise a RuntimeError if the chunks can be iterated only once
+        pass
+
+
+class FromGtArrayIterFactory:
+    def __init__(
+        self,
+        gt_array: numpy.ndarray,
+        samples: Sequence[str] | Sequence[int] | None = None,
+    ):
+        gts = Genotypes(gt_array, samples=samples)
+        chunk = VariantsChunk(gts=gts)
+        self._chunks = [chunk]
+
+    def peek_first_chunk(self) -> VariantsChunk:
+        chunk = self._chunks[0]
+        return chunk
+
+    def iter_vars_chunks(self):
+        return iter(self._chunks)
+
+
 class Variants:
     def __init__(
         self,
-        vars_chunks: Iterator[VariantsChunk],
-        store_chunks_in_memory=False,
+        vars_chunk_iter_factory: ArrayIterFactory,
         desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
     ):
         self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
-
-        vars_chunks = iter(vars_chunks)
-        self._first_chunk = None
-        if store_chunks_in_memory:
-            self._vars_chunks = list(vars_chunks)
-            self._chunks_iter = None
-        else:
-            self._vars_chunks = None
-            self._chunks_iter = vars_chunks
+        self._vars_chunks_iter_factory = vars_chunk_iter_factory
+        self._samples = None
 
     def _get_orig_vars_iter(self):
-        if self._vars_chunks is not None:
-            return iter(self._vars_chunks)
-        else:
-            return self._chunks_iter
-
-    def _get_first_chunk(self):
-        if self._first_chunk is not None:
-            return self._first_chunk
-        if self._vars_chunks is not None:
-            chunk = self._vars_chunks[0]
-        else:
-            try:
-                chunk = next(self._chunks_iter)
-            except StopIteration:
-                raise RuntimeError("No variants_chunks available")
-            self._chunks_iter = itertools.chain([chunk], self._chunks_iter)
-            self._first_chunk = chunk
-        return chunk
+        return self._vars_chunks_iter_factory.iter_vars_chunks()
 
     def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
         return _resize_chunks(
@@ -224,7 +227,10 @@ class Variants:
 
     @property
     def samples(self):
-        return self._get_first_chunk().gts.samples
+        if self._samples is None:
+            samples = self._vars_chunks_iter_factory.peek_first_chunk().gts.samples
+            self._samples = samples
+        return self._samples
 
     @classmethod
     def from_gt_array(
@@ -232,8 +238,7 @@ class Variants:
         gts: numpy.array,
         samples: list[str] | None = None,
     ) -> Self:
-        chunk = VariantsChunk(gts=Genotypes(gts, samples=samples))
-        return cls(vars_chunks=[chunk], store_chunks_in_memory=True)
+        return cls(vars_chunk_iter_factory=FromGtArrayIterFactory(gts, samples=samples))
 
 
 def _concat_genotypes(genotypes: Sequence[Genotypes]):
