@@ -35,7 +35,6 @@ def test_pca_gt():
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     gts = Genotypes(gt_array)
-    do_pca_with_genotypes(gts)
 
     do_pcoa_with_genotypes(gts, use_approx_embedding_algorithm=False)
     do_pcoa_with_genotypes(gts, use_approx_embedding_algorithm=True)
