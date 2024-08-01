@@ -216,6 +216,7 @@ class Variants:
         self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
         self._vars_chunks_iter_factory = vars_chunk_iter_factory
         self._samples = None
+        self._num_samples = None
 
     def _get_orig_vars_iter(self):
         return self._vars_chunks_iter_factory.iter_vars_chunks()
@@ -225,12 +226,21 @@ class Variants:
             self._get_orig_vars_iter(), desired_num_rows=self.desired_num_vars_per_chunk
         )
 
+    def _get_samples(self):
+        if self._num_samples is None:
+            first_chunk = self._vars_chunks_iter_factory.peek_first_chunk()
+            samples = first_chunk.gts.samples
+            self._num_samples = first_chunk.num_samples
+            self._samples = samples
+        return self._samples, self._num_samples
+
     @property
     def samples(self):
-        if self._samples is None:
-            samples = self._vars_chunks_iter_factory.peek_first_chunk().gts.samples
-            self._samples = samples
-        return self._samples
+        return self._get_samples()[0]
+
+    @property
+    def num_samples(self):
+        return self._get_samples()[1]
 
     @classmethod
     def from_gt_array(

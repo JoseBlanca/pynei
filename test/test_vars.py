@@ -86,6 +86,8 @@ def test_variants_from_gts():
     assert all(numpy.equal(variants.samples, samples))
     assert numpy.array_equal(next(variants.iter_vars_chunks()).gts.gt_array, gt_array)
 
+    assert variants.num_samples == 4
+
 
 def test_chunk_size():
     num_vars = 100
