@@ -6,10 +6,13 @@ from pynei.pca import (
     create_012_gt_matrix,
     do_pca,
     do_pca_with_vars,
+    do_pcoa,
+    do_pcoa_with_vars,
 )
 from pynei.variants import Variants
 from pynei.config import MISSING_ALLELE
 from datasets import IRIS
+from pynei.dists import Distances
 
 
 def test_mat012():
@@ -75,3 +78,25 @@ def test_pca_vars():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     vars = Variants.from_gt_array(gt_array)
     do_pca_with_vars(vars)
+
+
+def test_pcoa():
+    dists = [0.2, 0.3, 0.9, 0.9, 0.1, 0.8, 0.7, 0.7, 0.8, 0.2]
+    dists = Distances(numpy.array(dists), names=["i1", "i2", "i3", "i4", "i5"])
+    res = do_pcoa(dists)
+    projections = res["projections"]
+    assert abs(projections.loc["i1", "PC0"] - projections.loc["i2", "PC0"]) < abs(
+        projections.loc["i1", "PC0"] - projections.loc["i4", "PC0"]
+    )
+
+
+def test_pcoa_with_vars():
+    numpy.random.seed(seed=42)
+    num_vars = 100
+    num_indis = 20
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
+    vars = Variants.from_gt_array(gt_array)
+
+    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=False)
+    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=True)

@@ -6,6 +6,7 @@ import pandas
 from pynei.gt_counts import _count_alleles_per_var
 from pynei.config import DEF_POP_NAME, MISSING_ALLELE
 from pynei.pipeline import Pipeline
+from pynei.dists import Distances, calc_pairwise_kosman_dists
 
 
 def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
@@ -97,3 +98,100 @@ def do_pca_with_vars(variants, transform_to_biallelic=False):
     )
     mat012 = pandas.DataFrame(mat012.T, index=variants.samples)
     return do_pca(mat012, center_data=True, standarize_data=True)
+
+
+def _make_f_matrix(matrix):
+    """It takes an E matrix and returns an F matrix
+
+    The input is the output of make_E_matrix
+
+    For each element in matrix subtract mean of corresponding row and
+    column and add the mean of all elements in the matrix
+    """
+    num_rows, num_cols = matrix.shape
+    # make a vector of the means for each row and column
+    # column_means = (numpy.add.reduce(E_matrix) / num_rows)
+    column_means = (numpy.add.reduce(matrix) / num_rows)[:, numpy.newaxis]
+    trans_matrix = numpy.transpose(matrix)
+    row_sums = numpy.add.reduce(trans_matrix)
+    row_means = row_sums / num_cols
+    # calculate the mean of the whole matrix
+    matrix_mean = numpy.sum(row_sums) / (num_rows * num_cols)
+    # adjust each element in the E matrix to make the F matrix
+
+    matrix -= row_means
+    matrix -= column_means
+    matrix += matrix_mean
+
+    return matrix
+
+
+def do_pcoa(dists: Distances):
+    "It does a Principal Coordinate Analysis on a distance matrix"
+    # the code for this function is taken from pycogent metric_scaling.py
+    # Principles of Multivariate analysis: A User's Perspective.
+    # W.J. Krzanowski Oxford University Press, 2000. p106.
+
+    sample_names = dists.names
+    dists = dists.square_dists.values
+
+    if numpy.any(numpy.isnan(dists)):
+        raise ValueError("dists array has nan values")
+
+    e_matrix = (dists * dists) / -2.0
+    f_matrix = _make_f_matrix(e_matrix)
+
+    eigvals, eigvecs = numpy.linalg.eigh(f_matrix)
+    eigvecs = eigvecs.transpose()
+    # drop imaginary component, if we got one
+    eigvals, eigvecs = eigvals.real, eigvecs.real
+
+    # convert eigvals and eigvecs to point matrix
+    # normalized eigenvectors with eigenvalues
+
+    # get the coordinates of the n points on the jth axis of the Euclidean
+    # representation as the elements of (sqrt(eigvalj))eigvecj
+    # must take the absolute value of the eigvals since they can be negative
+    pca_matrix = eigvecs * numpy.sqrt(abs(eigvals))[:, numpy.newaxis]
+
+    # output
+    # get order to output eigenvectors values. reports the eigvecs according
+    # to their cooresponding eigvals from greatest to least
+    vector_order = list(numpy.argsort(eigvals))
+    vector_order.reverse()
+
+    eigvals = eigvals[vector_order]
+
+    # eigenvalues
+    pcnts = (eigvals / numpy.sum(eigvals)) * 100.0
+
+    # the outputs
+    # eigenvectors in the original pycogent implementation, here we name them
+    # princoords
+    # I think that we're doing: if the eigenvectors are written as columns,
+    # the rows of the resulting table are the coordinates of the objects in
+    # PCO space
+    projections = []
+    for name_i in range(dists.shape[0]):
+        eigvect = [pca_matrix[vec_i, name_i] for vec_i in vector_order]
+        projections.append(eigvect)
+    projections = numpy.array(projections)
+    prin_comps_names = _create_pc_names(projections.shape[1])
+
+    return {
+        "projections": pandas.DataFrame(
+            projections, index=sample_names, columns=prin_comps_names
+        ),
+        "explained_variance (%)": pandas.Series(pcnts, index=prin_comps_names),
+    }
+
+
+def do_pcoa_with_vars(
+    variants, min_num_snps=None, use_approx_embedding_algorithm=False
+):
+    dists = calc_pairwise_kosman_dists(
+        variants,
+        min_num_snps=min_num_snps,
+        use_approx_embedding_algorithm=use_approx_embedding_algorithm,
+    )
+    return do_pcoa(dists)
