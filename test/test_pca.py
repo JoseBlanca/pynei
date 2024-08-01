@@ -98,5 +98,5 @@ def test_pcoa_with_vars():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     vars = Variants.from_gt_array(gt_array)
 
-    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=False)
     do_pcoa_with_vars(vars, use_approx_embedding_algorithm=True)
+    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=False)

@@ -292,9 +292,7 @@ def _get_dists(
     else:
         if new_dists is not None:
             cached_dists = pandas.concat([new_dists, cached_dists], axis="index")
-        dists = cached_dists.reindex(
-            index=pandas.Index(pop1_samples), columns=cached_dists.columns
-        )
+        dists = cached_dists.loc[pandas.Index(pop1_samples), cached_dists.columns]
     return dists, cached_dists
 
 
