@@ -119,7 +119,7 @@ class _KosmanDistCalculator:
         Kosman, Leonard (2005) Mol. Ecol. (DOI: 10.1111/j.1365-294X.2005.02416.x)
         """
 
-        self.indi_names = chunk.samples
+        self.indi_names = _get_samples_from_variants(chunk)
         gt_array = chunk.gts.gt_array
         self.gt_array = gt_array
         self.allele_is_missing = gt_array == MISSING_ALLELE
@@ -162,7 +162,11 @@ class _KosmanDistCalculator:
 
     @property
     def num_items(self):
-        return len(self.indi_names)
+        n_indis = self.gt_array.shape[1]
+        if self.indi_names is not None:
+            assert n_indis == len(self.indi_names)
+
+        return n_indis
 
 
 def _calc_pairwise_dists_between_pops(
@@ -292,6 +296,14 @@ def _get_dists(
     return dists, cached_dists
 
 
+def _get_samples_from_variants(variants):
+    if variants.samples is None:
+        samples = numpy.arange(variants.num_samples)
+    else:
+        samples = numpy.array(variants.samples)
+    return samples
+
+
 def _select_seed_samples_for_embedding(
     variants,
     num_initial_samples,
@@ -299,17 +311,18 @@ def _select_seed_samples_for_embedding(
     min_num_snps=None,
     num_processes=2,
 ):
-    samples = numpy.array(variants.samples)
-    num_samples = samples.size
+    all_samples = _get_samples_from_variants(variants)
+
+    num_samples = all_samples.size
     if not num_initial_samples:
         num_initial_samples = int(round(math.log2(num_samples) ** 2))
-    seed_samples = numpy.array(random.sample(list(samples), k=num_initial_samples))
+    seed_samples = numpy.array(random.sample(list(all_samples), k=num_initial_samples))
 
     cached_dists = None
     for _ in range(max_num_seed_expansions):
         dist_pipeline = _create_kosman_dist_pipeline(
             pop1_samples=seed_samples,
-            pop2_samples=variants.samples,
+            pop2_samples=all_samples,
             min_num_snps=min_num_snps,
         )
         seed_dists, cached_dists = _get_dists(
@@ -321,12 +334,12 @@ def _select_seed_samples_for_embedding(
 
         sample_idxs_with_max_dists_to_seeds = numpy.argmax(seed_dists, axis=1)
         most_distant_samples = numpy.unique(
-            samples[sample_idxs_with_max_dists_to_seeds]
+            all_samples[sample_idxs_with_max_dists_to_seeds]
         )
         # print(most_distant_samples)
         dist_pipeline = _create_kosman_dist_pipeline(
             pop1_samples=most_distant_samples,
-            pop2_samples=variants.samples,
+            pop2_samples=all_samples,
             min_num_snps=min_num_snps,
         )
         dists_to_most_distant_samples, cached_dists = _get_dists(
@@ -339,7 +352,7 @@ def _select_seed_samples_for_embedding(
             dists_to_most_distant_samples.values, axis=1
         )
         samples_most_distant_to_most_distant_samples = numpy.unique(
-            samples[samples_idxs_most_distant_to_most_distant_samples]
+            all_samples[samples_idxs_most_distant_to_most_distant_samples]
         )
         # print(samples_most_distant_to_most_distant_samples)
         old_num_seeds = seed_samples.size
@@ -370,10 +383,11 @@ def _calc_pairwise_dists_btw_all_and_some_ref_indis(
         min_num_snps=min_num_snps,
         num_processes=num_processes,
     )
+    all_samples = _get_samples_from_variants(variants)
 
     dist_pipeline = _create_kosman_dist_pipeline(
         pop1_samples=seed_samples,
-        pop2_samples=variants.samples,
+        pop2_samples=all_samples,
         min_num_snps=min_num_snps,
     )
     dists_for_embedding, _ = _get_dists(
@@ -383,7 +397,7 @@ def _calc_pairwise_dists_btw_all_and_some_ref_indis(
         num_processes=num_processes,
     )
     dists_btw_all_indis_and_some_ref_indis = pandas.DataFrame(
-        dists_for_embedding.T, index=variants.samples
+        dists_for_embedding.T, index=all_samples
     )
 
     return dists_btw_all_indis_and_some_ref_indis
@@ -451,7 +465,7 @@ def _calc_pairwise_dists(
             dist_pipeline=pipeline,
             num_processes=num_processes,
         )
-    dists = Distances(dists, variants.samples)
+    dists = Distances(dists, _get_samples_from_variants(variants))
     return dists
 
 
