@@ -3,8 +3,15 @@ import math
 import numpy
 import pandas
 
-from pynei.dists import Distances, _KosmanDistCalculator, calc_euclidean_pairwise_dists
+from pynei.dists import (
+    Distances,
+    _KosmanDistCalculator,
+    calc_euclidean_pairwise_dists,
+    calc_jost_dest_pop_dists,
+    _DestDistCalculator,
+)
 from pynei import Variants, calc_pairwise_kosman_dists
+from pynei.dists import _calc_pops_idxs
 
 
 def test_distances():
@@ -205,3 +212,58 @@ def test_euclidean_dists():
     dists = calc_euclidean_pairwise_dists(samples)
     expected = [0.8160523, 1.4245896, 1.74402628, 1.37436733, 1.84068677, 1.00002389]
     assert numpy.allclose(dists.dist_vector, expected)
+
+
+def test_dest_jost_distance():
+    gts = [
+        [  #          sample pop is_het tot_het freq_het
+            (1, 1),  #    1     1
+            (1, 3),  #    2     1     1
+            (1, 2),  #    3     1     1
+            (1, 4),  #    4     1     1
+            (3, 3),  #    5     1             3     3/5=0.6
+            (3, 2),  #    6     2     1
+            (3, 4),  #    7     2     1
+            (2, 2),  #    8     2
+            (2, 4),  #    9     2     1
+            (4, 4),  #   10     2
+            (-1, -1),  # 11     2             3     3/6=0.5
+        ],
+        [
+            (1, 3),
+            (1, 1),
+            (1, 1),
+            (1, 3),
+            (3, 3),
+            (3, 2),
+            (3, 4),
+            (2, 2),
+            (2, 4),
+            (4, 4),
+            (-1, -1),
+        ],
+    ]
+    samples = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    snps = Variants.from_gt_array(numpy.array(gts), samples=samples)
+
+    pop1 = [1, 2, 3, 4, 5]
+    pop2 = [6, 7, 8, 9, 10, 11]
+    pops = {"pop1": pop1, "pop2": pop2}
+
+    calc_dists = _DestDistCalculator(
+        pop_idxs=_calc_pops_idxs({"pop1": pop1, "pop2": pop2}, snps.samples),
+        sorted_pop_ids=["pop1", "pop2"],
+        min_num_genotypes=1,
+        ploidy=snps.ploidy,
+        alleles=None,
+    )
+    chunk = next(snps.iter_vars_chunks())
+    dists = calc_dists(chunk)
+    expected = numpy.array([0.49090909, 0.77931034])
+    assert numpy.allclose(dists, expected)
+
+    dist = calc_jost_dest_pop_dists(snps, pops=pops, min_num_samples=0)
+    assert numpy.allclose(dist.dist_vector, [0.65490196])
+
+    dists = calc_jost_dest_pop_dists(snps, pops=pops, min_num_samples=6)
+    assert numpy.all(numpy.isnan(dists.dist_vector))

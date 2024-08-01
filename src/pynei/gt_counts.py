@@ -55,7 +55,10 @@ def _calc_obs_het_per_var(chunk, pops):
 
     obs_het_per_var = pandas.DataFrame(obs_het_per_var)
     called_gts_per_var = pandas.DataFrame(called_gts_per_var)
-    return {"obs_het_per_var": obs_het_per_var}
+    return {
+        "obs_het_per_var": obs_het_per_var,
+        "called_gts_per_var": called_gts_per_var,
+    }
 
 
 def calc_obs_het_stats_per_var(
