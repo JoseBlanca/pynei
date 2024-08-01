@@ -20,10 +20,12 @@ class Pipeline:
         map_functs: list[Callable] | None = None,
         reduce_funct: Callable = None,
         reduce_initializer=None,
+        after_reduce_funct: Callable = None,
     ):
         self.map_functs = map_functs
         self.reduce_funct = reduce_funct
         self.reduce_initializer = reduce_initializer
+        self.after_reduce_funct = after_reduce_funct
 
     def append_map_funct(self, map_funct: Callable):
         self.map_functs.append(map_funct)
@@ -55,6 +57,9 @@ class Pipeline:
 
         if use_multiprocessing:
             pool.close()
+
+        if self.after_reduce_funct is not None:
+            result = self.after_reduce_funct(result)
 
         return result
 

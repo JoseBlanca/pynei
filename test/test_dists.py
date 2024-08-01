@@ -3,7 +3,7 @@ import math
 import numpy
 import pandas
 
-from pynei.dists import Distances, _KosmanDistCalculator
+from pynei.dists import Distances, _KosmanDistCalculator, calc_euclidean_pairwise_dists
 from pynei import Variants, calc_pairwise_kosman_dists
 
 
@@ -187,12 +187,21 @@ def test_kosman_pairwise():
     vars = Variants.from_gt_array(gts, samples=["a", "b", "c", "d"])
 
     expected = [0.33333333, 0.75, 0.75, 0.5, 0.5, 0.0]
-    dists = calc_pairwise_kosman_dists(vars, num_processes=1)
+    dists = calc_pairwise_kosman_dists(vars)
     assert numpy.allclose(dists.dist_vector, expected)
-    return
 
-    dists_emb = calc_kosman_pairwise_dists(gts, use_approx_embedding_algorithm=True)
+    dists_emb = calc_pairwise_kosman_dists(vars, use_approx_embedding_algorithm=True)
     dists = dists.square_dists
     dists_emb = dists_emb.square_dists
     dists_emb = dists_emb.loc[dists.index, :].loc[:, dists.index]
     assert numpy.corrcoef(dists_emb.values.flat, dists.values.flat)[0, 1] > 0.99
+
+
+def test_euclidean_dists():
+    num_samples = 4
+    num_traits = 10
+    numpy.random.seed(42)
+    samples = pandas.DataFrame(numpy.random.uniform(size=(num_samples, num_traits)))
+    dists = calc_euclidean_pairwise_dists(samples)
+    expected = [0.8160523, 1.4245896, 1.74402628, 1.37436733, 1.84068677, 1.00002389]
+    assert numpy.allclose(dists.dist_vector, expected)

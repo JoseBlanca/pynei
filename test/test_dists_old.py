@@ -52,30 +52,3 @@ def test_dest_jost_distance():
 
     dists = calc_jost_dest_dist(gts, pops=pops, min_num_genotypes=6)
     assert numpy.all(numpy.isnan(dists.dist_vector))
-
-
-def test_euclidean_dists():
-    num_samples = 4
-    num_traits = 10
-    numpy.random.seed(42)
-    samples = pandas.DataFrame(numpy.random.uniform(size=(num_samples, num_traits)))
-    dists = calc_euclidean_pairwise_dists(samples)
-    expected = [0.8160523, 1.4245896, 1.74402628, 1.37436733, 1.84068677, 1.00002389]
-    assert numpy.allclose(dists.dist_vector, expected)
-
-
-def test_emmbedding():
-    num_samples = 40
-    num_traits = 10
-    numpy.random.seed(42)
-    samples = pandas.DataFrame(numpy.random.uniform(size=(num_samples, num_traits)))
-
-    dists = calc_euclidean_pairwise_dists(samples)
-    dists_emb = calc_euclidean_pairwise_dists(
-        samples, use_approx_embedding_algorithm=True
-    )
-    dists = dists.square_dists
-    dists_emb = dists_emb.square_dists.loc[dists.index, :].loc[:, dists.index]
-    assert (
-        numpy.corrcoef(dists.values.flat[:10], dists_emb.values.flat[:10])[0, 1] > 0.89
-    )
