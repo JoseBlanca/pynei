@@ -179,6 +179,7 @@ def _read_vars(fhand, metadata):
 
 
 def parse_vcf(fpath: Path):
+    fpath = Path(fpath)
     fhand = _open_vcf(fpath)
     metadata = _parse_metadata(fhand)
 
