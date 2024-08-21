@@ -87,7 +87,7 @@ def _parse_allele(allele):
         return True, 0
     else:
         allele = int(allele)
-    if allele > 255:
+    if allele > 65535:
         raise NotImplementedError(f"Only alleles up to 255 are implemented: {allele}")
     return False, allele
 
@@ -141,9 +141,9 @@ def _parse_var_line(line, num_samples, ploidy=None):
         ploidy = len(alleles)
 
     ref_gt_str = b"/".join([b"0"] * ploidy)
-    size_of_int = 1
-    gts = array.array("b", bytearray(num_samples * ploidy) * size_of_int)
-    missing_mask = array.array("b", bytearray(num_samples * ploidy) * size_of_int)
+    size_of_int = 2
+    gts = array.array("H", bytearray(num_samples * ploidy * size_of_int))
+    missing_mask = array.array("b", bytearray(num_samples * ploidy))
     sample_idx = 0
     for gt_str in fields[9:]:
         gt_str = gt_str.split(b":")[gt_fmt_idx]
@@ -154,7 +154,7 @@ def _parse_var_line(line, num_samples, ploidy=None):
                 missing_mask[sample_idx + allele_idx] = 1
             gts[sample_idx + allele_idx] = allele
         sample_idx += ploidy
-    gts = numpy.frombuffer(gts, dtype=numpy.int8).reshape(num_samples, ploidy)
+    gts = numpy.frombuffer(gts, dtype=numpy.int16).reshape(num_samples, ploidy)
     missing_mask = (
         numpy.frombuffer(missing_mask, dtype=numpy.int8)
         .reshape(num_samples, ploidy)
