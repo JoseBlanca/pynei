@@ -121,6 +121,13 @@ def _get_gt_fmt_idx(gt_fmt):
     return gt_fmt.split(b":").index(b"GT")
 
 
+@functools.lru_cache
+def _parse_qual(qual):
+    if qual == b".":
+        return numpy.nan
+    return float(qual)
+
+
 def _parse_var_line(line, num_samples, ploidy=None):
     fields = line.split(b"\t")
     ref = fields[3].decode()
@@ -159,7 +166,7 @@ def _parse_var_line(line, num_samples, ploidy=None):
         "pos": int(fields[1]),
         "alleles": alleles,
         "id": fields[2].decode(),
-        "qual": float(fields[5]),
+        "qual": _parse_qual(fields[5]),
         "gts": gts,
         "missing_mask": missing_mask,
     }
