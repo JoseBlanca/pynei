@@ -274,7 +274,7 @@ def _get_dists(
     else:
         assert all(numpy.equal(pop2_samples, cached_dists.columns))
         samples_to_calc_dists_from = pop1_samples[
-            numpy.logical_not(numpy.in1d(pop1_samples, cached_dists.index))
+            numpy.logical_not(numpy.isin(pop1_samples, cached_dists.index))
         ]
 
     if samples_to_calc_dists_from.size:
