@@ -1,5 +1,5 @@
 LD
 
-tips for reading large files:
-- csv read with pandas.read_csv chunksize, usecols, engine=pyarrow
-- https://textual.textualize.io/blog/2024/02/11/file-magic-with-the-python-standard-library/
+The nested Containment Lists implemented in pyranges are very interesting to calculate inverval/segments overlaps:
+- https://academic.oup.com/bioinformatics/article/23/11/1386/199545
+- https://github.com/pyranges/pyranges
