@@ -1,6 +1,5 @@
 from typing import Iterator, Self, Sequence, Protocol
 from collections.abc import Sequence as SequenceABC
-import itertools
 
 import numpy
 import pandas
