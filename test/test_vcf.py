@@ -5,7 +5,13 @@ import math
 
 import numpy
 
-from pynei.io_vcf import parse_vcf, _guess_vcf_file_kind, _VCFKind, _parse_metadata
+from pynei.io_vcf import (
+    parse_vcf,
+    _guess_vcf_file_kind,
+    _VCFKind,
+    _parse_metadata,
+    vars_from_vcf,
+)
 
 VCF_45 = b"""##fileformat=VCFv4.5
 ##fileDate=20090805
@@ -55,7 +61,7 @@ def test_metadata_parser():
         tmp_path = Path(tmp.name)
         metadata = _parse_metadata(open(tmp_path, "rb"))
         assert len(metadata["samples"]) == 3
-        assert metadata["samples"] == ["NA00001", "NA00002", "NA00003"]
+        assert numpy.array_equal(metadata["samples"], ["NA00001", "NA00002", "NA00003"])
         assert metadata["ploidy"] == 2
 
 
@@ -81,3 +87,25 @@ def test_vcf_parser():
         )
         assert numpy.array_equal(snp["gts"], [[0, 0], [0, 1], [0, 0]])
         assert math.isnan(snp["qual"])
+
+
+def test_vars_from_vcf():
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(VCF_45)
+        tmp.flush()
+        vars = vars_from_vcf(Path(tmp.name))
+        assert vars.num_samples == 3
+        assert vars.ploidy == 2
+        chunk = list(vars.iter_vars_chunks())[0]
+        assert chunk.num_vars == 6
+        assert chunk.vars_info.loc[0, "chrom"] == "20"
+        assert chunk.vars_info.loc[0, "pos"] == 14370
+        gts = [
+            [[1, 2], [3, 4], [5, 6000]],
+            [[0, 0], [0, 1], [0, 0]],
+            [[1, 2], [2, 1], [2, 2]],
+            [[0, 0], [0, 0], [0, 0]],
+            [[0, 1], [0, 2], [1, 1]],
+            [[0, 1], [0, 2], [1, 1]],
+        ]
+        assert numpy.array_equal(chunk.gts.gt_array, gts)

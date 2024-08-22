@@ -199,9 +199,13 @@ class FromGtArrayIterFactory:
         chunk = VariantsChunk(gts=gts)
         self._chunks = [chunk]
 
-    def peek_first_chunk(self) -> VariantsChunk:
-        chunk = self._chunks[0]
-        return chunk
+    def _get_metadata(self):
+        first_chunk = self._chunks[0]
+        return {
+            "samples": first_chunk.gts.samples,
+            "num_samples": first_chunk.num_samples,
+            "ploidy": first_chunk.gts.ploidy,
+        }
 
     def iter_vars_chunks(self):
         return iter(self._chunks)
@@ -227,30 +231,20 @@ class Variants:
             self._get_orig_vars_iter(), desired_num_rows=self.desired_num_vars_per_chunk
         )
 
-    def _get_first_chunk_info(self):
-        if self._num_samples is None:
-            first_chunk = self._vars_chunks_iter_factory.peek_first_chunk()
-            samples = first_chunk.gts.samples
-            self._num_samples = first_chunk.num_samples
-            self._samples = samples
-            self._ploidy = first_chunk.gts.ploidy
-        return {
-            "samples": self._samples,
-            "num_samples": self._num_samples,
-            "ploidy": self._ploidy,
-        }
+    def _get_metadata(self):
+        return self._vars_chunks_iter_factory._get_metadata()
 
     @property
     def samples(self):
-        return self._get_first_chunk_info()["samples"]
+        return self._get_metadata()["samples"]
 
     @property
     def num_samples(self):
-        return self._get_first_chunk_info()["num_samples"]
+        return self._get_metadata()["num_samples"]
 
     @property
     def ploidy(self):
-        return self._get_first_chunk_info()["ploidy"]
+        return self._get_metadata()["ploidy"]
 
     @classmethod
     def from_gt_array(

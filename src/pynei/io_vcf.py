@@ -3,8 +3,13 @@ import array
 from enum import Enum
 import gzip
 import functools
+import itertools
 
 import numpy
+import pandas
+
+from pynei.variants import Variants, VariantsChunk, Genotypes
+from pynei import config
 
 VCF_SAMPLE_LINE_ITEMS = [
     "#CHROM",
@@ -61,7 +66,9 @@ def _parse_metadata(fhand):
         else:
             raise ValueError("Invalid VCF file, it has no header")
 
-    num_samples = len(metadata["samples"])
+    metadata["samples"] = numpy.array(metadata["samples"])
+    num_samples = metadata["samples"].size
+    metadata["num_samples"] = num_samples
     try:
         var_line = next(fhand)
     except StopIteration:
@@ -128,11 +135,22 @@ def _parse_qual(qual):
     return float(qual)
 
 
+@functools.lru_cache
+def _parse_id(id_):
+    if id_ == b".":
+        return None
+    return id_.decode()
+
+
 def _parse_var_line(line, num_samples, ploidy=None):
     fields = line.split(b"\t")
     ref = fields[3].decode()
-    alt = fields[4].decode().split(",")
-    alleles = [ref] + alt
+    alt = fields[4]
+    if alt != b".":
+        alt = alt.decode().split(",")
+        alleles = [ref] + alt
+    else:
+        alleles = [ref]
 
     gt_fmt_idx = _get_gt_fmt_idx(fields[8])
 
@@ -154,7 +172,9 @@ def _parse_var_line(line, num_samples, ploidy=None):
                 missing_mask[sample_idx + allele_idx] = 1
             gts[sample_idx + allele_idx] = allele
         sample_idx += ploidy
-    gts = numpy.frombuffer(gts, dtype=numpy.int16).reshape(num_samples, ploidy)
+    gts = numpy.frombuffer(gts, dtype=config.GT_NUMPY_DTYPE).reshape(
+        num_samples, ploidy
+    )
     missing_mask = (
         numpy.frombuffer(missing_mask, dtype=numpy.int8)
         .reshape(num_samples, ploidy)
@@ -165,7 +185,7 @@ def _parse_var_line(line, num_samples, ploidy=None):
         "chrom": _decode_chrom(fields[0]),
         "pos": int(fields[1]),
         "alleles": alleles,
-        "id": fields[2].decode(),
+        "id": _parse_id(fields[2]),
         "qual": _parse_qual(fields[5]),
         "gts": gts,
         "missing_mask": missing_mask,
@@ -194,3 +214,67 @@ def parse_vcf(vcf_path: Path):
     vars = _read_vars(fhand, metadata)
 
     return {"metadata": metadata, "vars": vars, "fhand": fhand}
+
+
+class _FromVCFIterFactory:
+    def __init__(self, vcf_path):
+        self.vcf_path = vcf_path
+        res = parse_vcf(self.vcf_path)
+        self.metadata = res["metadata"]
+        res["fhand"].close()
+
+    def iter_vars_chunks(self):
+        res = parse_vcf(self.vcf_path)
+        fhand = res["fhand"]
+        samples = self.metadata["samples"]
+
+        vars_chunks = itertools.batched(res["vars"], config.DEF_NUM_VARS_PER_CHUNK)
+        for vars_chunk in vars_chunks:
+            chroms = []
+            poss = []
+            ids = []
+            quals = []
+            alleles = []
+            gts = []
+            max_num_alleles = 0
+            for var in vars_chunk:
+                chroms.append(var["chrom"])
+                poss.append(var["pos"])
+                ids.append(var["id"])
+                quals.append(var["qual"])
+                alleles.append(var["alleles"])
+                max_num_alleles = max(max_num_alleles, len(var["alleles"]))
+                gts.append(var["gts"])
+            vars_info = pandas.DataFrame(
+                {
+                    config.CHROM_VARIANTS_COL: pandas.Series(
+                        chroms, dtype=config.PANDAS_STR_DTYPE()
+                    ),
+                    config.POS_VARIANTS_COL: pandas.Series(
+                        poss, dtype=config.PANDAS_INT_DTYPE()
+                    ),
+                    config.ID_VARIANTS_COL: pandas.Series(
+                        ids, dtype=config.PANDAS_STR_DTYPE()
+                    ),
+                    config.QUAL_VARIANTS_COL: pandas.Series(
+                        quals, dtype=config.PANDAS_FLOAT_DTYPE()
+                    ),
+                },
+            )
+            alleles = pandas.DataFrame(alleles, dtype=config.PANDAS_STR_DTYPE())
+            gts = numpy.array(gts)
+            gts.flags.writeable = False
+            gts = Genotypes(gts, samples=samples)
+            chunk = VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
+            yield chunk
+        fhand.close()
+
+    def _get_metadata(self):
+        return self.metadata
+
+
+def vars_from_vcf(vcf_path: Path) -> Variants:
+    chunk_factory = _FromVCFIterFactory(vcf_path)
+    vars = Variants(chunk_factory)
+
+    return vars
