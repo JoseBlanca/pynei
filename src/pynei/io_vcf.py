@@ -185,8 +185,8 @@ def _read_vars(fhand, metadata):
     return vars
 
 
-def parse_vcf(fpath: Path):
-    fpath = Path(fpath)
+def parse_vcf(vcf_path: Path):
+    fpath = Path(vcf_path)
     fhand = _open_vcf(fpath)
     metadata = _parse_metadata(fhand)
 
