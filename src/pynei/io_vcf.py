@@ -193,5 +193,4 @@ def parse_vcf(fpath: Path):
     fhand = _open_vcf(fpath)
     vars = _read_vars(fhand, metadata)
 
-    # print(numpy.array([[1, 2], [3, 4], [5, 6]]).tobytes())
     return {"metadata": metadata, "vars": vars}
