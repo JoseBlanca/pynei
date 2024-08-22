@@ -193,4 +193,4 @@ def parse_vcf(vcf_path: Path):
     fhand = _open_vcf(fpath)
     vars = _read_vars(fhand, metadata)
 
-    return {"metadata": metadata, "vars": vars}
+    return {"metadata": metadata, "vars": vars, "fhand": fhand}
