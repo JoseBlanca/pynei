@@ -10,9 +10,9 @@ from pynei.pca import (
     do_pcoa_with_vars,
 )
 from pynei.variants import Variants
-from pynei.config import MISSING_ALLELE
 from datasets import IRIS
 from pynei.dists import Distances
+from pynei.config import MISSING_ALLELE
 
 
 def test_mat012():
@@ -25,6 +25,9 @@ def test_mat012():
     gt_array[1, :, :] = 2
     gt_array[1, 0, 1] = 3
     gt_array[2, :, :] = MISSING_ALLELE
+    missing_mask = numpy.zeros_like(gt_array, dtype=bool)
+    missing_mask[2, :, :] = True
+    gt_array = numpy.ma.array(gt_array, mask=missing_mask)
 
     vars = Variants.from_gt_array(gt_array)
     chunk = next(vars.iter_vars_chunks())

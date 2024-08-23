@@ -4,7 +4,7 @@ import numpy
 import pandas
 
 from pynei.gt_counts import _count_alleles_per_var
-from pynei.config import DEF_POP_NAME, MISSING_ALLELE
+from pynei.config import DEF_POP_NAME
 from pynei.pipeline import Pipeline
 from pynei.dists import Distances, calc_pairwise_kosman_dists
 
@@ -24,9 +24,8 @@ def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
         )
 
     major_alleles = numpy.argmax(allele_counts, axis=1)
-    gt_array = chunk.gts.gt_array
+    gt_array = chunk.gts.gt_values
     gts012 = numpy.sum(gt_array != major_alleles[:, None, None], axis=2)
-    gts012[numpy.any(gt_array == MISSING_ALLELE, axis=2)] = MISSING_ALLELE
     return gts012
 
 

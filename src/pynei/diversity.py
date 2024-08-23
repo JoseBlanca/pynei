@@ -7,7 +7,6 @@ import pandas
 from pynei.config import (
     MIN_NUM_SAMPLES_FOR_POP_STAT,
     DEF_POLY_THRESHOLD,
-    MISSING_ALLELE,
 )
 from pynei.gt_counts import _count_alleles_per_var, _calc_maf_per_var
 from pynei.utils_pop import _calc_pops_idxs
@@ -129,7 +128,6 @@ def _calc_num_poly_vars(
     res = _calc_maf_per_var(
         chunk,
         pops=pops,
-        missing_gt=MISSING_ALLELE,
         min_num_samples=min_num_samples,
     )
     mafs = res["major_allele_freqs_per_var"]

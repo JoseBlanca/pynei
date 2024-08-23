@@ -8,7 +8,7 @@ import numpy
 import pandas
 
 from pynei.pipeline import Pipeline
-from pynei.config import MISSING_ALLELE, MIN_NUM_SAMPLES_FOR_POP_STAT
+from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT
 from pynei.utils_pop import _calc_pops_idxs
 from pynei.gt_counts import _count_alleles_per_var, _calc_obs_het_per_var
 
@@ -122,9 +122,9 @@ class _KosmanDistCalculator:
         """
 
         self.indi_names = _get_samples_from_variants(chunk)
-        gt_array = chunk.gts.gt_array
+        gt_array = chunk.gts.gt_values
         self.gt_array = gt_array
-        self.allele_is_missing = gt_array == MISSING_ALLELE
+        self.allele_is_missing = chunk.gts.missing_mask
 
     def _get_sample_gts(self, indi_i, indi_j):
         gt_i = self.gt_array[:, indi_i, :]

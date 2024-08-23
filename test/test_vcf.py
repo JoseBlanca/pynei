@@ -85,7 +85,7 @@ def test_vcf_parser():
         assert numpy.array_equal(
             snp["missing_mask"], [[True, False], [False, False], [False, False]]
         )
-        assert numpy.array_equal(snp["gts"], [[0, 0], [0, 1], [0, 0]])
+        assert numpy.array_equal(snp["gts"], [[-1, 0], [0, 1], [0, 0]])
         assert math.isnan(snp["qual"])
 
 
@@ -102,10 +102,10 @@ def test_vars_from_vcf():
         assert chunk.vars_info.loc[0, "pos"] == 14370
         gts = [
             [[1, 2], [3, 4], [5, 6000]],
-            [[0, 0], [0, 1], [0, 0]],
+            [[-1, 0], [0, 1], [0, 0]],
             [[1, 2], [2, 1], [2, 2]],
             [[0, 0], [0, 0], [0, 0]],
             [[0, 1], [0, 2], [1, 1]],
             [[0, 1], [0, 2], [1, 1]],
         ]
-        assert numpy.array_equal(chunk.gts.gt_array, gts)
+        assert numpy.array_equal(chunk.gts.gt_values, numpy.array(gts))

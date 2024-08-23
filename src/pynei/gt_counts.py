@@ -3,7 +3,7 @@ from functools import partial
 import numpy
 import pandas
 
-from pynei.config import MISSING_ALLELE, MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME
+from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME, MISSING_ALLELE
 from pynei.variants import Variants
 from pynei.utils_pop import _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
@@ -14,7 +14,7 @@ def _calc_gt_is_missing(chunk, partial_res=None):
     if "gt_is_missing" in res:
         return res
 
-    allele_is_missing = chunk.gts.gt_array == MISSING_ALLELE
+    allele_is_missing = chunk.gts.missing_mask
     res["gt_is_missing"] = numpy.any(allele_is_missing, axis=2)
     return res
 
@@ -27,7 +27,7 @@ def _calc_gt_is_het(chunk, partial_res=None):
     res = _calc_gt_is_missing(chunk, partial_res=res)
     gt_is_missing = res["gt_is_missing"]
 
-    gt_array = chunk.gts.gt_array
+    gt_array = chunk.gts.gt_values
     gt_is_het = numpy.logical_not(
         numpy.all(gt_array == gt_array[:, :, 0][:, :, numpy.newaxis], axis=2)
     )
@@ -85,11 +85,13 @@ def _count_alleles_per_var(
     calc_freqs: bool,
     pops: dict[str, list[int]] | None = None,
     alleles=None,
-    missing_gt=MISSING_ALLELE,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ):
-    gts = chunk.gts.gt_array
-    alleles_in_chunk = set(numpy.unique(gts)).difference([missing_gt])
+    gts = chunk.gts.gt_values
+    missing_mask = chunk.gts.missing_mask
+
+    alleles_in_chunk = set(numpy.unique(gts).tolist()).difference([MISSING_ALLELE])
+    alleles = sorted(alleles_in_chunk)
     ploidy = chunk.ploidy
 
     if pops is None:
@@ -100,22 +102,22 @@ def _count_alleles_per_var(
             raise RuntimeError(
                 f"These gts have alleles ({alleles_in_chunk}) not present in the given ones ({alleles})"
             )
-    alleles = sorted(alleles_in_chunk)
 
     result = {}
     for pop_id, pop_slice in pops.items():
         pop_gts = gts[:, pop_slice, :]
+        pop_missing_mask = missing_mask[:, pop_slice, :]
         allele_counts = numpy.empty(
-            shape=(pop_gts.shape[0], len(alleles)), dtype=numpy.int64
+            shape=(pop_gts.shape[0], len(alleles)), dtype=numpy.int32
         )
-        missing_counts = None
-        for idx, allele in enumerate([missing_gt] + alleles):
-            allele_counts_per_row = numpy.sum(pop_gts == allele, axis=(1, 2))
-            if idx == 0:
-                missing_counts = allele_counts_per_row
-            else:
-                allele_counts[:, idx - 1] = allele_counts_per_row
+        for idx, allele in enumerate(alleles):
+            is_allele = numpy.logical_and(
+                pop_gts == allele, numpy.logical_not(pop_missing_mask)
+            )
+            allele_counts_per_row = numpy.sum(is_allele, axis=(1, 2))
+            allele_counts[:, idx] = allele_counts_per_row
         allele_counts = pandas.DataFrame(allele_counts, columns=alleles)
+        missing_counts = numpy.sum(pop_missing_mask, axis=(1, 2))
 
         result[pop_id] = {
             "allele_counts": allele_counts,
@@ -144,14 +146,12 @@ def _count_alleles_per_var(
 def _calc_maf_per_var(
     chunk,
     pops,
-    missing_gt=MISSING_ALLELE,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ):
     res = _count_alleles_per_var(
         chunk,
         pops=pops,
         alleles=None,
-        missing_gt=missing_gt,
         calc_freqs=True,
         min_num_samples=min_num_samples,
     )

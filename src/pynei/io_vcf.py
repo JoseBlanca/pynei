@@ -10,6 +10,12 @@ import pandas
 
 from pynei.variants import Variants, VariantsChunk, Genotypes
 from pynei import config
+from pynei.config import (
+    MISSING_ALLELE,
+    MAX_ALLELE_NUMBER,
+    PYTHON_ARRAY_TYPE,
+    BYTE_SIZE_OF_INT,
+)
 
 VCF_SAMPLE_LINE_ITEMS = [
     "#CHROM",
@@ -91,11 +97,13 @@ def _open_vcf(fpath):
 @functools.lru_cache
 def _parse_allele(allele):
     if allele == b".":
-        return True, 0
+        return True, MISSING_ALLELE
     else:
         allele = int(allele)
-    if allele > 65535:
-        raise NotImplementedError(f"Only alleles up to 255 are implemented: {allele}")
+    if allele > MAX_ALLELE_NUMBER:
+        raise NotImplementedError(
+            f"Only alleles up to {MAX_ALLELE_NUMBER} are implemented: {allele}"
+        )
     return False, allele
 
 
@@ -159,8 +167,9 @@ def _parse_var_line(line, num_samples, ploidy=None):
         ploidy = len(alleles)
 
     ref_gt_str = b"/".join([b"0"] * ploidy)
-    size_of_int = 2
-    gts = array.array("H", bytearray(num_samples * ploidy * size_of_int))
+    gts = array.array(
+        PYTHON_ARRAY_TYPE, bytearray(num_samples * ploidy * BYTE_SIZE_OF_INT)
+    )
     missing_mask = array.array("b", bytearray(num_samples * ploidy))
     sample_idx = 0
     for gt_str in fields[9:]:
@@ -170,7 +179,8 @@ def _parse_var_line(line, num_samples, ploidy=None):
         for allele_idx, (is_missing, allele) in enumerate(_parse_gt(gt_str)[1]):
             if is_missing:
                 missing_mask[sample_idx + allele_idx] = 1
-            gts[sample_idx + allele_idx] = allele
+            if allele != 0:
+                gts[sample_idx + allele_idx] = allele
         sample_idx += ploidy
     gts = numpy.frombuffer(gts, dtype=config.GT_NUMPY_DTYPE).reshape(
         num_samples, ploidy
@@ -236,6 +246,7 @@ class _FromVCFIterFactory:
             quals = []
             alleles = []
             gts = []
+            missing_masks = []
             max_num_alleles = 0
             for var in vars_chunk:
                 chroms.append(var["chrom"])
@@ -245,6 +256,7 @@ class _FromVCFIterFactory:
                 alleles.append(var["alleles"])
                 max_num_alleles = max(max_num_alleles, len(var["alleles"]))
                 gts.append(var["gts"])
+                missing_masks.append(var["missing_mask"])
             vars_info = pandas.DataFrame(
                 {
                     config.CHROM_VARIANTS_COL: pandas.Series(
@@ -262,9 +274,11 @@ class _FromVCFIterFactory:
                 },
             )
             alleles = pandas.DataFrame(alleles, dtype=config.PANDAS_STR_DTYPE())
-            gts = numpy.array(gts)
+            gts = numpy.ma.array(
+                gts, mask=missing_masks, fill_value=config.MISSING_ALLELE
+            )
             gts.flags.writeable = False
-            gts = Genotypes(gts, samples=samples)
+            gts = Genotypes(gts, samples=samples, skip_mask_check=True)
             chunk = VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
             yield chunk
         fhand.close()

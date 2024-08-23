@@ -143,6 +143,14 @@ def test_maf_stats():
     )
     vars = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
     chunk = next(vars.iter_vars_chunks())
+    counts = _count_alleles_per_var(
+        chunk, pops={0: slice(None, None)}, min_num_samples=1, calc_freqs=False
+    )
+    allele_counts = counts["counts"][0]["allele_counts"]
+    assert allele_counts.columns.tolist() == [0, 1]
+    assert numpy.array_equal(allele_counts.values, [[3, 3], [3, 4], [0, 0]])
+    assert numpy.array_equal(counts["counts"][0]["missing_gts_per_var"], [2, 1, 8])
+
     res = _calc_maf_per_var(chunk, pops={0: slice(None, None)}, min_num_samples=1)
     assert numpy.allclose(
         res["major_allele_freqs_per_var"][0].values,

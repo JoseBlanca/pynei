@@ -9,25 +9,36 @@ from .config import (
     PANDAS_FLOAT_DTYPE,
     PANDAS_INT_DTYPE,
     DEF_NUM_VARS_PER_CHUNK,
+    MISSING_ALLELE,
 )
 
 
 class Genotypes:
     def __init__(
         self,
-        gt_array: numpy.ndarray,
+        gt_array: numpy.ma.masked_array,
         samples: numpy.ndarray | Sequence[str] | None = None,
+        skip_mask_check=False,
     ):
-        if not isinstance(gt_array, numpy.ndarray):
-            raise ValueError("gts must be a numpy array")
+        if not numpy.ma.isarray(gt_array):
+            raise ValueError("gts must be a masked numpy array")
         if not numpy.issubdtype(gt_array.dtype, numpy.integer):
             raise ValueError("gts must be an integer numpy array")
-
-        assert gt_array.ndim == 3
+        if not gt_array.ndim == 3:
+            raise ValueError("gts must be a 3D numpy array: vars x samples x ploidy")
 
         if gt_array.flags.writeable:
             gt_array = gt_array.copy()
             gt_array.flags.writeable = False
+
+        if not skip_mask_check:
+            if not numpy.array_equal(
+                numpy.ma.getdata(gt_array) == MISSING_ALLELE,
+                numpy.ma.getmaskarray(gt_array),
+            ):
+                raise ValueError(
+                    f"Missing values should be {MISSING_ALLELE} in the values and masked, but {MISSING_ALLELE} and mask do not match"
+                )
 
         if samples is not None:
             samples = numpy.array(samples)
@@ -51,8 +62,16 @@ class Genotypes:
         return self._samples
 
     @property
-    def gt_array(self):
+    def gt_values(self):
+        return numpy.ma.getdata(self._gts)
+
+    @property
+    def gt_ma_array(self):
         return self._gts
+
+    @property
+    def missing_mask(self):
+        return numpy.ma.getmaskarray(self._gts)
 
     @property
     def shape(self):
@@ -71,8 +90,7 @@ class Genotypes:
         return self._gts.shape[2]
 
     def get_vars(self, index):
-        gts = self.gt_array[index, :, :]
-
+        gts = self.gt_ma_array[index, :, :]
         gts.flags.writeable = False
         return self.__class__(gt_array=gts, samples=self.samples)
 
@@ -83,7 +101,7 @@ class Genotypes:
         if not isinstance(samples, SequenceABC):
             raise ValueError("samples must be a sequence")
         index = numpy.where(numpy.isin(self.samples, samples))[0]
-        gts = self.gt_array[:, index, :]
+        gts = self.gt_ma_array[:, index, :]
         samples = self.samples[index]
 
         samples.flags.writeable = False
@@ -191,10 +209,8 @@ class ArrayIterFactory(Protocol):
 class FromGtArrayIterFactory:
     def __init__(
         self,
-        gt_array: numpy.ndarray,
-        samples: Sequence[str] | Sequence[int] | None = None,
+        gts: Genotypes,
     ):
-        gts = Genotypes(gt_array, samples=samples)
         chunk = VariantsChunk(gts=gts)
         self._chunks = [chunk]
 
@@ -248,10 +264,20 @@ class Variants:
     @classmethod
     def from_gt_array(
         cls,
-        gts: numpy.array,
+        gts: numpy.ndarray | numpy.ma.masked_array,
         samples: list[str] | None = None,
     ) -> Self:
-        return cls(vars_chunk_iter_factory=FromGtArrayIterFactory(gts, samples=samples))
+        if not numpy.ma.isarray(gts):
+            missing_mask = gts == MISSING_ALLELE
+            gts = numpy.ma.array(gts, mask=missing_mask, fill_value=MISSING_ALLELE)
+            skip_mask_check = True
+        else:
+            skip_mask_check = False
+        return cls(
+            vars_chunk_iter_factory=FromGtArrayIterFactory(
+                Genotypes(gts, skip_mask_check=skip_mask_check, samples=samples),
+            )
+        )
 
 
 def _concat_genotypes(genotypes: Sequence[Genotypes]):

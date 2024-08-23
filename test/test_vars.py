@@ -11,20 +11,21 @@ def test_gts():
     num_samples = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    gt_array = numpy.ma.array(gt_array)
     gts = Genotypes(gt_array)
     assert gts.num_vars == num_vars
     assert gts.num_samples == num_samples
     assert gts.ploidy == ploidy
-    assert numpy.array_equal(gts.gt_array, gt_array)
+    assert numpy.array_equal(gts.gt_values, gt_array)
     assert gts.samples is None
 
     gts = Genotypes(gt_array, samples=["a", "b", "c", "d"])
     vars_slice = [1, 2]
     gts2 = gts.get_vars(vars_slice)
-    assert numpy.array_equal(gts2.gt_array, gt_array[vars_slice, :, :])
+    assert numpy.array_equal(gts2.gt_values, gt_array[vars_slice, :, :])
 
     gts2 = gts.get_samples(["b", "d"])
-    assert numpy.array_equal(gts2.gt_array, gt_array[:, [1, 3], :])
+    assert numpy.array_equal(gts2.gt_values, gt_array[:, [1, 3], :])
 
     with pytest.raises(ValueError):
         gts = Genotypes(gt_array, samples=["a", "a", "c", "d"])
@@ -38,7 +39,7 @@ def test_chunk():
     num_samples = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
-    chunk = VariantsChunk(gts=Genotypes(gt_array))
+    chunk = VariantsChunk(gts=Genotypes(numpy.ma.array(gt_array)))
     assert chunk.num_vars == num_vars
     assert chunk.num_samples == num_samples
     assert chunk.ploidy == ploidy
@@ -49,7 +50,7 @@ def test_chunk_different_num_rows():
     num_samples = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
-    gts = Genotypes(gt_array)
+    gts = Genotypes(numpy.ma.array(gt_array))
     vars_info = pandas.DataFrame(
         {
             CHROM_VARIANTS_COL: ["chr1", "chr1", "chr2"],
@@ -80,11 +81,11 @@ def test_variants_from_gts():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
     variants = Variants.from_gt_array(gt_array, samples=samples)
     assert all(numpy.equal(variants.samples, samples))
-    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts.gt_array, gt_array)
+    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts.gt_values, gt_array)
 
     variants = Variants.from_gt_array(gt_array, samples=samples)
     assert all(numpy.equal(variants.samples, samples))
-    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts.gt_array, gt_array)
+    assert numpy.array_equal(next(variants.iter_vars_chunks()).gts.gt_values, gt_array)
 
     assert variants.num_samples == 4
     assert variants.ploidy == 2
@@ -95,6 +96,7 @@ def test_chunk_size():
     num_samples = 3
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    gt_array = numpy.ma.array(gt_array)
     variants = Variants.from_gt_array(gt_array)
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
@@ -112,6 +114,7 @@ def test_chunk_size():
     num_samples = 3
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    gt_array = numpy.ma.array(gt_array)
     variants = Variants.from_gt_array(gt_array)
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
