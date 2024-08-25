@@ -259,16 +259,16 @@ class _FromVCFIterFactory:
                 missing_masks.append(var["missing_mask"])
             vars_info = pandas.DataFrame(
                 {
-                    config.CHROM_VARIANTS_COL: pandas.Series(
+                    config.VAR_TABLE_CHROM_COL: pandas.Series(
                         chroms, dtype=config.PANDAS_STR_DTYPE()
                     ),
-                    config.POS_VARIANTS_COL: pandas.Series(
+                    config.VAR_TABLE_POS_COL: pandas.Series(
                         poss, dtype=config.PANDAS_INT_DTYPE()
                     ),
-                    config.ID_VARIANTS_COL: pandas.Series(
+                    config.VAR_TABLE_ID_COL: pandas.Series(
                         ids, dtype=config.PANDAS_STR_DTYPE()
                     ),
-                    config.QUAL_VARIANTS_COL: pandas.Series(
+                    config.VAR_TABLE_QUAL_COL: pandas.Series(
                         quals, dtype=config.PANDAS_FLOAT_DTYPE()
                     ),
                 },

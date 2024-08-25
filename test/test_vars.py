@@ -3,7 +3,7 @@ import pandas
 import pytest
 
 from pynei.variants import Genotypes, VariantsChunk, Variants
-from pynei.config import CHROM_VARIANTS_COL, POS_VARIANTS_COL
+from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL
 
 
 def test_gts():
@@ -53,15 +53,15 @@ def test_chunk_different_num_rows():
     gts = Genotypes(numpy.ma.array(gt_array))
     vars_info = pandas.DataFrame(
         {
-            CHROM_VARIANTS_COL: ["chr1", "chr1", "chr2"],
-            POS_VARIANTS_COL: [1, 2, 3],
+            VAR_TABLE_CHROM_COL: ["chr1", "chr1", "chr2"],
+            VAR_TABLE_POS_COL: [1, 2, 3],
         }
     )
     chunk = VariantsChunk(gts=gts, vars_info=vars_info)
     assert chunk.num_vars == num_vars
 
     variants_info2 = pandas.DataFrame(
-        {CHROM_VARIANTS_COL: ["chr1", "chr1"], POS_VARIANTS_COL: [1, 2]}
+        {VAR_TABLE_CHROM_COL: ["chr1", "chr1"], VAR_TABLE_POS_COL: [1, 2]}
     )
     with pytest.raises(ValueError):
         VariantsChunk(gts=gts, vars_info=variants_info2)
