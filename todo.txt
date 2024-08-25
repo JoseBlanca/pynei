@@ -1,3 +1,7 @@
+Forbid GTs without samples or create smples if None is provided
+
+Vars IO testing should depend on the availability of pyarrow
+
 LD
 
 The nested Containment Lists implemented in pyranges are very interesting to calculate inverval/segments overlaps:

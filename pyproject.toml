@@ -10,6 +10,11 @@ dependencies = [
     "scipy>=1.14.1",
 ]
 
+[project.optional-dependencies]
+pyarrow = [
+    "pyarrow>=17.0.0",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
