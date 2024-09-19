@@ -162,6 +162,9 @@ def calc_poly_vars_ratio_per_var(
     pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ):
+    samples = variants.samples
+    pops = _calc_pops_idxs(pops, samples)
+
     calc_num_poly_vars = partial(
         _calc_num_poly_vars,
         poly_threshold=poly_threshold,
