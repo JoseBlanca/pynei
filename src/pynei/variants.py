@@ -222,7 +222,7 @@ class FromGtArrayIterFactory:
             "ploidy": first_chunk.gts.ploidy,
         }
 
-    def iter_vars_chunks(self):
+    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
         return iter(self._chunks)
 
 
