@@ -14,15 +14,15 @@ def test_filter_missing():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_missing_data(orig_vars, max_missing_rate=0)
+    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0)
     filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, False, False], ...] == filtered_gts)
 
-    vars = filter_by_missing_data(orig_vars, max_missing_rate=0.5)
+    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0.5)
     filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, True, False], ...] == filtered_gts)
 
-    vars = filter_by_missing_data(orig_vars, max_missing_rate=-0.1)
+    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=-0.1)
     with pytest.raises(StopIteration):
         next(vars.iter_vars_chunks())
 

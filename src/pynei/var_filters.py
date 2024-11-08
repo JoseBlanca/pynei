@@ -23,9 +23,11 @@ def _filter_chunk_by_missing(chunk, max_missing_rate):
     return chunk
 
 
-def filter_by_missing_data(vars: Variants, max_missing_rate: float = 0.0) -> Variants:
+def filter_by_missing_data(
+    vars: Variants, max_allowed_missing_rate: float = 0.0
+) -> Variants:
     filter_chunk_by_missing = partial(
-        _filter_chunk_by_missing, max_missing_rate=max_missing_rate
+        _filter_chunk_by_missing, max_missing_rate=max_allowed_missing_rate
     )
     chunk_factory = _FilterIterFactory(vars, filter_chunk_by_missing)
     return Variants(
