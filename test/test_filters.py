@@ -2,7 +2,11 @@ import pytest
 import numpy
 
 from pynei.variants import Variants
-from pynei.var_filters import filter_by_missing_data, filter_by_maf
+from pynei.var_filters import (
+    filter_by_missing_data,
+    filter_by_maf,
+    gather_filtering_stats,
+)
 
 
 def test_filter_missing():
@@ -44,3 +48,6 @@ def test_filter_mafs():
     vars = filter_by_maf(orig_vars, max_allowed_maf=0.7)
     filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[False, True, False], ...] == filtered_gts)
+
+    stats = gather_filtering_stats(vars)
+    assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}
