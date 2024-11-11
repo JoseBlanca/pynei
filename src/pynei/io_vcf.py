@@ -226,7 +226,7 @@ def parse_vcf(vcf_path: Path):
     return {"metadata": metadata, "vars": vars, "fhand": fhand}
 
 
-class _FromVCFIterFactory:
+class _FromVCFChunkIterFactory:
     def __init__(self, vcf_path):
         self.vcf_path = vcf_path
         res = parse_vcf(self.vcf_path)
@@ -288,7 +288,7 @@ class _FromVCFIterFactory:
 
 
 def vars_from_vcf(vcf_path: Path) -> Variants:
-    chunk_factory = _FromVCFIterFactory(vcf_path)
+    chunk_factory = _FromVCFChunkIterFactory(vcf_path)
     vars = Variants(chunk_factory)
 
     return vars

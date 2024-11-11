@@ -6,7 +6,7 @@ from pynei.variants import Variants
 from pynei.gt_counts import _calc_gt_is_missing, _calc_maf_per_var
 
 
-class _FilterIterFactory:
+class _FilterChunkIterFactory:
     def __init__(self, in_vars, filter_funct):
         self.in_vars = in_vars
         self.filter_funct = filter_funct
@@ -22,7 +22,7 @@ class _FilterIterFactory:
             yield filtered_chunk
 
 
-class _MissingFilterIterFactory(_FilterIterFactory):
+class _MissingFilterIterFactory(_FilterChunkIterFactory):
     kind = "missing_data"
 
 
@@ -30,7 +30,7 @@ def gather_filtering_stats(vars: Variants, stats=None):
     if stats is None:
         stats = {}  # stats by filter kind
     chunk_factory = vars._vars_chunks_iter_factory
-    if isinstance(chunk_factory, _FilterIterFactory):
+    if isinstance(chunk_factory, _FilterChunkIterFactory):
         filter_kind = chunk_factory.kind
         if filter_kind not in stats:
             stats[filter_kind] = {"vars_processed": 0, "vars_kept": 0}
@@ -70,7 +70,7 @@ def filter_by_missing_data(
     )
 
 
-class _MafFilterIterFactory(_FilterIterFactory):
+class _MafFilterIterFactory(_FilterChunkIterFactory):
     kind = "maf"
 
 
@@ -94,5 +94,6 @@ def filter_by_maf(vars: Variants, max_allowed_maf) -> Variants:
 
 
 # TODO
+# check that gather stats works in parallel
 # obs_het
 # var QUAL

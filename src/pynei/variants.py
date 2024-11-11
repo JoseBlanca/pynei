@@ -196,7 +196,7 @@ class VariantsChunk:
         return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
 
 
-class ArrayIterFactory(Protocol):
+class ChunkIterFactory(Protocol):
     def peek_first_chunk(self) -> VariantsChunk:
         # It might raise a RuntimeError if it is called after calling iter_vars_chunks
         pass
@@ -206,7 +206,7 @@ class ArrayIterFactory(Protocol):
         pass
 
 
-class FromGtArrayIterFactory:
+class FromGtChunkIterFactory:
     def __init__(
         self,
         gts: Genotypes,
@@ -229,7 +229,7 @@ class FromGtArrayIterFactory:
 class Variants:
     def __init__(
         self,
-        vars_chunk_iter_factory: ArrayIterFactory,
+        vars_chunk_iter_factory: ChunkIterFactory,
         desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
     ):
         self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
@@ -274,7 +274,7 @@ class Variants:
         else:
             skip_mask_check = False
         return cls(
-            vars_chunk_iter_factory=FromGtArrayIterFactory(
+            vars_chunk_iter_factory=FromGtChunkIterFactory(
                 Genotypes(gts, skip_mask_check=skip_mask_check, samples=samples),
             )
         )
