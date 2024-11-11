@@ -3,7 +3,11 @@ from functools import partial
 import numpy
 
 from pynei.variants import Variants
-from pynei.gt_counts import _calc_gt_is_missing, _calc_maf_per_var
+from pynei.gt_counts import (
+    _calc_gt_is_missing,
+    _calc_maf_per_var,
+    _calc_obs_het_per_var,
+)
 
 
 class _FilterChunkIterFactory:
@@ -93,7 +97,30 @@ def filter_by_maf(vars: Variants, max_allowed_maf) -> Variants:
     )
 
 
+class _ObsHetFilterIterFactory(_FilterChunkIterFactory):
+    kind = "obs_het"
+
+
+def _filter_chunk_by_obs_het(chunk, max_allowed_obs_het):
+    obs_hets = _calc_obs_het_per_var(chunk, pops={"pop": slice(None, None)})[
+        "obs_het_per_var"
+    ]["pop"]
+    mask = obs_hets <= max_allowed_obs_het
+    num_vars_kept = mask.sum()
+    chunk = chunk.get_vars(mask)
+    return chunk, num_vars_kept
+
+
+def filter_by_obs_het(vars: Variants, max_allowed_obs_het: float):
+    filter_chunk = partial(
+        _filter_chunk_by_obs_het, max_allowed_obs_het=max_allowed_obs_het
+    )
+    chunk_factory = _ObsHetFilterIterFactory(vars, filter_chunk)
+    return Variants(
+        vars_chunk_iter_factory=chunk_factory,
+        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+    )
+
+
 # TODO
-# check that gather stats works in parallel
-# obs_het
 # var QUAL

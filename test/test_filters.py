@@ -5,6 +5,7 @@ from pynei.variants import Variants
 from pynei.var_filters import (
     filter_by_missing_data,
     filter_by_maf,
+    filter_by_obs_het,
     gather_filtering_stats,
 )
 
@@ -51,3 +52,27 @@ def test_filter_mafs():
 
     stats = gather_filtering_stats(vars)
     assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}
+
+
+def test_filter_obs_het():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [0, 0], [0, 1], [1, 0], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
+
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=0)
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[False, False, True], ...] == filtered_gts)
+
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=4 / 5)
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[True, True, True], ...] == filtered_gts)
