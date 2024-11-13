@@ -4,7 +4,6 @@ import numpy
 import pandas
 
 from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME, MISSING_ALLELE
-from pynei.variants import Variants
 from pynei.utils_pop import _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
 
@@ -62,7 +61,7 @@ def _calc_obs_het_per_var(chunk, pops):
 
 
 def calc_obs_het_stats_per_var(
-    variants: Variants,
+    variants,
     pops: list[str] | None = None,
     hist_kwargs=None,
 ):

@@ -10,7 +10,9 @@ from .config import (
     PANDAS_INT_DTYPE,
     DEF_NUM_VARS_PER_CHUNK,
     MISSING_ALLELE,
+    DEF_POP_NAME,
 )
+from pynei.gt_counts import _count_alleles_per_var
 
 
 class Genotypes:
@@ -21,7 +23,10 @@ class Genotypes:
         skip_mask_check=False,
     ):
         if not numpy.ma.isarray(gt_array):
-            raise ValueError("gts must be a masked numpy array")
+            mask = gt_array == MISSING_ALLELE
+            gt_array = numpy.ma.array(gt_array, mask=mask)
+            skip_mask_check = True
+
         if not numpy.issubdtype(gt_array.dtype, numpy.integer):
             raise ValueError("gts must be an integer numpy array")
         if not gt_array.ndim == 3:
@@ -107,6 +112,17 @@ class Genotypes:
         samples.flags.writeable = False
         gts.flags.writeable = False
         return self.__class__(gt_array=gts, samples=samples)
+
+    def to_012(self) -> numpy.ndarray:
+        res = _count_alleles_per_var(VariantsChunk(self), calc_freqs=False)
+        allele_counts = res["counts"][DEF_POP_NAME]["allele_counts"].values
+
+        major_alleles = numpy.argmax(allele_counts, axis=1)
+        gts012 = numpy.sum(self.gt_values != major_alleles[:, None, None], axis=2)
+
+        gts012[numpy.any(self.missing_mask, axis=2)] = MISSING_ALLELE
+
+        return gts012
 
 
 ArrayType = tuple[numpy.ndarray, pandas.DataFrame, pandas.Series, Genotypes]
