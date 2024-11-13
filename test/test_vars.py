@@ -34,6 +34,12 @@ def test_gts():
         gts = Genotypes(gt_array, samples=["a", "b"])
 
 
+def test_gts_to_012():
+    gt_array = numpy.array([[[0, -1], [0, 0], [0, 0], [0, 0], [0, 1], [1, 0], [1, 1]]])
+    gts = Genotypes(gt_array)
+    assert numpy.all(gts.to_012() == [[-1, 0, 0, 0, 1, 1, 2]])
+
+
 def test_chunk():
     num_vars = 3
     num_samples = 4
