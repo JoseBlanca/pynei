@@ -107,16 +107,15 @@ def calc_pairwise_rogers_huff_r2(
         chunks_are_close = partial(_chunks_are_close, max_dist=max_dist)
         chunk_pairs = filter(chunks_are_close, chunk_pairs)
 
-    print()
     for chunk1, chunk2 in chunk_pairs:
         r2 = _calc_rogers_huff_r2(
             chunk1.gts.to_012(),
             chunk2.gts.to_012(),
             check_no_mafs_above=check_no_mafs_above,
         )
-        print(r2)
 
         poss1, poss2, chroms1, chroms2 = None, None, None, None
+        # print(chunk1.vars_info)
         if chunk1.vars_info is not None and chunk2.vars_info is not None:
             try:
                 poss1 = numpy.array(chunk1.vars_info[VAR_TABLE_POS_COL].values)
@@ -131,7 +130,7 @@ def calc_pairwise_rogers_huff_r2(
             except KeyError:
                 pass
             try:
-                chroms2 = numpy.array(chunk1.vars_info[VAR_TABLE_CHROM_COL].values)
+                chroms2 = numpy.array(chunk2.vars_info[VAR_TABLE_CHROM_COL].values)
             except KeyError:
                 pass
 
@@ -146,8 +145,8 @@ def calc_pairwise_rogers_huff_r2(
                     and poss1 is not None
                     and poss2 is not None
                 ):
-                    pos1 = poss1[idx2]
-                    pos2 = poss2[idx2]
+                    pos1 = int(poss1[idx1])
+                    pos2 = int(poss2[idx2])
                     chrom1 = chroms1[idx1]
                     chrom2 = chroms2[idx2]
                     dist = abs(pos1 - pos2) if chrom1 == chrom2 else None

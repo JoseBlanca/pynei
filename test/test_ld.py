@@ -3,10 +3,12 @@ import math
 from functools import partial
 
 import numpy
+import pandas
 import pytest
 
-from pynei.variants import Genotypes, Variants
+from pynei.variants import Genotypes, Variants, VariantsChunk
 from pynei.ld import _calc_rogers_huff_r2, calc_pairwise_rogers_huff_r2
+from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from .var_generator import generate_vars
 
 
@@ -225,6 +227,17 @@ def test_ld_calc():
     _calc_rogers_huff_r2(gts, gts, check_no_mafs_above=None)
 
 
+class _FromChunkIterFactory:
+    def __init__(
+        self,
+        chunk,
+    ):
+        self._chunks = [chunk]
+
+    def iter_vars_chunks(self):
+        return iter(self._chunks)
+
+
 def test_pairwiseld():
     gts = [
         [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 1), (1, 1), (0, 0)],
@@ -242,21 +255,30 @@ def test_pairwiseld():
     )
     assert numpy.allclose(r2s, r2_array[numpy.triu_indices(r2_array.shape[0], k=1)])
 
+    # test using several chunks in the calculation
     vars = Variants.from_gt_array(gts)
     vars.desired_num_vars_per_chunk = 2
     r2s2 = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(vars)]
     assert numpy.allclose(sorted(r2s), sorted(r2s2))
 
-    create_gts_funct = partial(
-        create_gts, independence_rate=0.5, geno_freqs={(0, 0): 0.5, (1, 1): 0.5}
+    # test distances
+    vars_info = pandas.DataFrame(
+        {
+            VAR_TABLE_POS_COL: [10, 20, 30, 40, 50],
+            VAR_TABLE_CHROM_COL: ["1", "1", "2", "2", "2"],
+        }
     )
-    vars = generate_vars(
-        num_chroms=2,
-        num_vars_per_chrom=10,
-        dist_between_vars=1000,
-        create_gts_funct=create_gts_funct,
-        num_samples=10,
-        chunk_size=3,
-    )
-    calc_pairwise_rogers_huff_r2(vars)
-    # calc_pairwise_rogers_huff_r2(vars, max_dist=2001)
+    chunk = VariantsChunk(Genotypes(gts), vars_info=vars_info)
+    chunk_iter_factory = _FromChunkIterFactory(chunk)
+    vars = Variants(chunk_iter_factory)
+    ld_ress = list(calc_pairwise_rogers_huff_r2(vars))
+    assert ld_ress[0].chrom_var1 == "1"
+    assert ld_ress[0].chrom_var2 == "1"
+    assert ld_ress[0].pos_var1 == 10
+    assert ld_ress[0].pos_var2 == 20
+    dists = sorted([res.dist_in_bp for res in ld_ress if res.dist_in_bp is not None])
+    assert dists == [10, 10, 10, 20]
+
+    ld_ress = list(calc_pairwise_rogers_huff_r2(vars, max_dist=15))
+    dists = sorted([res.dist_in_bp for res in ld_ress])
+    assert dists == [10, 10, 10]
