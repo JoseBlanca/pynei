@@ -1,11 +1,13 @@
 import random
 import math
+from functools import partial
 
 import numpy
 import pytest
 
-from pynei.variants import Genotypes
-from pynei.ld import _calc_rogers_huff_r2
+from pynei.variants import Genotypes, Variants
+from pynei.ld import _calc_rogers_huff_r2, calc_pairwise_rogers_huff_r2
+from .var_generator import generate_vars
 
 
 def create_gts_for_sample(num_samples, geno_freqs):
@@ -15,12 +17,12 @@ def create_gts_for_sample(num_samples, geno_freqs):
     return gts
 
 
-def create_gts(num_snps, num_samples, independence_rate, geno_freqs):
+def create_gts(num_vars, num_samples, independence_rate, geno_freqs):
     ref_snp_gts = create_gts_for_sample(num_samples, geno_freqs)
     rng = numpy.random.default_rng()
     column_idxs = numpy.arange(num_samples)
     gts = []
-    for _ in range(num_snps):
+    for _ in range(num_vars):
         independent_snp_gts = create_gts_for_sample(num_samples, geno_freqs)
         snp_idxs = rng.choice(
             [0, 1], size=num_samples, p=[1 - independence_rate, independence_rate]
@@ -83,12 +85,12 @@ def test_ld_calc():
     numpy.random.seed(42)
 
     num_samples = 10000
-    num_snps = 10
+    num_vars = 10
     geno_freqs = {(0, 0): 0.8, (1, 1): 0.2, (-1, -1): 0.01}
 
     for independence_rate in [0, 1, 0.5]:
         gts = create_gts(
-            num_snps,
+            num_vars,
             num_samples,
             independence_rate=independence_rate,
             geno_freqs=geno_freqs,
@@ -221,3 +223,40 @@ def test_ld_calc():
     with pytest.raises(ValueError):
         _calc_rogers_huff_r2(gts, gts)
     _calc_rogers_huff_r2(gts, gts, check_no_mafs_above=None)
+
+
+def test_pairwiseld():
+    gts = [
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 1), (1, 1), (0, 0)],
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
+        [(0, 0), (0, 0), (1, 0), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+        [(0, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+        [(0, 0), (0, 1), (0, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+    ]
+    vars = Variants.from_gt_array(gts)
+    r2s = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(vars)]
+    chunk = next(vars.iter_vars_chunks())
+    r2_array = _calc_rogers_huff_r2(
+        chunk.gts.to_012(),
+        chunk.gts.to_012(),
+    )
+    assert numpy.allclose(r2s, r2_array[numpy.triu_indices(r2_array.shape[0], k=1)])
+
+    vars = Variants.from_gt_array(gts)
+    vars.desired_num_vars_per_chunk = 2
+    r2s2 = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(vars)]
+    assert numpy.allclose(sorted(r2s), sorted(r2s2))
+
+    create_gts_funct = partial(
+        create_gts, independence_rate=0.5, geno_freqs={(0, 0): 0.5, (1, 1): 0.5}
+    )
+    vars = generate_vars(
+        num_chroms=2,
+        num_vars_per_chrom=10,
+        dist_between_vars=1000,
+        create_gts_funct=create_gts_funct,
+        num_samples=10,
+        chunk_size=3,
+    )
+    calc_pairwise_rogers_huff_r2(vars)
+    # calc_pairwise_rogers_huff_r2(vars, max_dist=2001)
