@@ -1,10 +1,34 @@
+import math
+
 import numpy
+
+from .config import MISSING_ALLELE
 
 DDOF = 1
 
 
-def _calc_rogers_huff_r2(gts1, gts2, check_no_mafs_above=0.95, debug=False):
-    # print("aquí hay que comprobar que ni gts1 ni gts2 tienen mafs muy grandes")
+def _calc_maf_from_012_gts(gts: numpy.array):
+    counts = {}
+    for gt in [0, 1, 2]:
+        counts[gt] = numpy.sum(gts == gt, axis=1)
+
+    num_gts_per_var = counts[0] + counts[1] + counts[2]
+    counts_major_allele = numpy.maximum(counts[0], counts[2])
+    freqs_major_allele = counts_major_allele / num_gts_per_var
+    freqs_het = counts[1] / num_gts_per_var
+    maf_per_var = freqs_major_allele + 0.5 * freqs_het
+    return maf_per_var
+
+
+def _calc_rogers_huff_r2(
+    gts1, gts2, check_no_mafs_above: float | None = 0.95, debug=False
+):
+    if check_no_mafs_above is not None:
+        maf_per_var = _calc_maf_from_012_gts(gts1)
+        if numpy.any(maf_per_var > check_no_mafs_above):
+            raise ValueError(
+                f"There are variations with mafs above {check_no_mafs_above}, filter them out or modify this check"
+            )
 
     covars = numpy.cov(gts1, gts2, ddof=DDOF)
     n_vars1 = gts1.shape[0]

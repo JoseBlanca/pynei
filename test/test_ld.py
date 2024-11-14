@@ -2,6 +2,7 @@ import random
 import math
 
 import numpy
+import pytest
 
 from pynei.variants import Genotypes
 from pynei.ld import _calc_rogers_huff_r2
@@ -94,6 +95,7 @@ def test_ld_calc():
         )
         gts = gts.to_012()
         r2 = _calc_rogers_huff_r2(gts, gts, debug=False)
+
         non_diag_mask = ~numpy.eye(r2.shape[0], dtype=bool)
         non_diag_r2 = r2[non_diag_mask]
         non_diag_r = numpy.sqrt(numpy.abs(non_diag_r2))
@@ -213,3 +215,9 @@ def test_ld_calc():
     assert math.isclose(r[0, 1], yz_r, abs_tol=1e-4)
     assert math.isclose(r[0, 0], yy_r, abs_tol=1e-4)
     assert math.isclose(r[1, 1], zz_r, abs_tol=1e-4)
+
+    gts = [0] * 100 + [1]
+    gts = numpy.array([gts])
+    with pytest.raises(ValueError):
+        _calc_rogers_huff_r2(gts, gts)
+    _calc_rogers_huff_r2(gts, gts, check_no_mafs_above=None)
