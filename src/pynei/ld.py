@@ -248,7 +248,4 @@ def calc_pairwise_rogers_huff_r2(
 
 
 # calc_ld_along_genome()
-# calc_pairwise_rogers_huff_r2(max_dist)
-#   returns a sparse matrix of (num_vars, num_vars)
-#   return distance
 # filter_vars_by_ld
