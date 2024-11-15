@@ -10,7 +10,7 @@ from pynei.pca import (
     do_pcoa_with_vars,
 )
 from pynei.variants import Variants
-from datasets import IRIS
+from .datasets import IRIS
 from pynei.dists import Distances
 from pynei.config import MISSING_ALLELE
 
