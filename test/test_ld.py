@@ -1,13 +1,19 @@
 import random
 import math
 from functools import partial
+import time
+
 
 import numpy
 import pandas
 import pytest
 
 from pynei.variants import Genotypes, Variants, VariantsChunk
-from pynei.ld import _calc_rogers_huff_r2, calc_pairwise_rogers_huff_r2
+from pynei.ld import (
+    _calc_rogers_huff_r2,
+    calc_pairwise_rogers_huff_r2,
+    calc_rogers_huff_r2_matrix,
+)
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from .var_generator import generate_vars
 
@@ -239,6 +245,7 @@ class _FromChunkIterFactory:
 
 
 def test_pairwiseld():
+    numpy.random.seed(42)
     gts = [
         [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 1), (1, 1), (0, 0)],
         [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (1, 1), (0, 0)],
@@ -282,3 +289,31 @@ def test_pairwiseld():
     ld_ress = list(calc_pairwise_rogers_huff_r2(vars, max_dist=15))
     dists = sorted([res.dist_in_bp for res in ld_ress])
     assert dists == [10, 10, 10]
+
+    num_vars = 500
+    num_chroms = 2
+    num_samples = 100
+    vars = generate_vars(
+        num_chroms=num_chroms,
+        num_vars_per_chrom=num_vars,
+        dist_between_vars=100,
+        create_gts_funct=partial(
+            create_gts,
+            independence_rate=0.5,
+            geno_freqs={(0, 0): 0.45, (1, 0): 0.45, (1, 1): 0.45},
+        ),
+        num_samples=num_samples,
+        chunk_size=num_vars,
+    )
+
+    time1 = time.time()
+    r2_results = calc_pairwise_rogers_huff_r2(vars)
+    for res in r2_results:
+        res.r2
+    time2 = time.time()
+    res = calc_rogers_huff_r2_matrix(vars)
+    time3 = time.time()
+    # print(time2 - time1)
+    # print(time3 - time2)
+    assert numpy.allclose(res["dists_in_bp"][0, :3], [0, 100, 200])
+    assert res["r2"].shape == (num_vars * num_chroms, num_vars * num_chroms)

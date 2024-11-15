@@ -3,8 +3,7 @@ from functools import partial
 from collections import namedtuple
 
 import numpy
-
-from .config import MISSING_ALLELE
+import pandas
 
 from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL
 
@@ -92,6 +91,91 @@ def _chunks_are_close(chunk_pair, max_dist):
     return False
 
 
+def calc_rogers_huff_r2_matrix(
+    vars, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
+):
+    # This function is faster than calc_pairwise_rogers_huff_r2,
+    # but it uses much more memory
+    chunks = list(vars.iter_vars_chunks())
+    tot_num_vars = sum(chunk.num_vars for chunk in chunks)
+    r2 = numpy.full((tot_num_vars, tot_num_vars), numpy.nan)
+    res = {"r2": r2}
+    dists = None
+    row_start = 0
+    for chunk1 in chunks:
+        col_start = 0
+        for chunk2 in chunks:
+            if max_dist:
+                if not _chunks_are_close((chunk1, chunk2), max_dist):
+                    continue
+            row_end = row_start + chunk1.num_vars
+            col_end = col_start + chunk2.num_vars
+
+            this_r2 = _calc_rogers_huff_r2(
+                chunk1.gts.to_012(),
+                chunk2.gts.to_012(),
+                check_no_mafs_above=check_no_mafs_above,
+            )
+            r2[row_start:row_end, col_start:col_end] = this_r2
+
+            chroms1, poss1, chroms2, poss2 = None, None, None, None
+            if chunk1.vars_info is not None:
+                try:
+                    chroms1 = chunk1.vars_info[VAR_TABLE_CHROM_COL]
+                except KeyError:
+                    pass
+                try:
+                    poss1 = chunk1.vars_info[VAR_TABLE_POS_COL].to_numpy()
+                except KeyError:
+                    pass
+                try:
+                    chroms2 = chunk2.vars_info[VAR_TABLE_CHROM_COL]
+                except KeyError:
+                    pass
+                try:
+                    poss2 = chunk2.vars_info[VAR_TABLE_POS_COL].to_numpy()
+                except KeyError:
+                    pass
+                if not any(
+                    [
+                        chroms1 is None,
+                        chroms2 is None,
+                        poss1 is None,
+                        poss2 is None,
+                    ]
+                ):
+                    mat1 = numpy.repeat(poss1, chunk2.num_vars).reshape(
+                        (chunk1.num_vars, chunk2.num_vars)
+                    )
+                    mat2 = numpy.tile(poss2, chunk1.num_vars).reshape(
+                        (chunk1.num_vars, chunk2.num_vars)
+                    )
+                    this_dists = numpy.abs(mat1 - mat2).astype(float)
+
+                    chroms = pandas.concat([chroms1, chroms2])
+                    chroms = pandas.factorize(chroms)[0]
+                    chroms1 = chroms[: chroms1.size]
+                    chroms2 = chroms[chroms2.size :]
+                    mat1 = numpy.repeat(chroms1, chunk2.num_vars).reshape(
+                        (chunk1.num_vars, chunk2.num_vars)
+                    )
+                    mat2 = numpy.tile(chroms2, chunk1.num_vars).reshape(
+                        (chunk1.num_vars, chunk2.num_vars)
+                    )
+                    is_different_chrom = mat1 != mat2
+                    this_dists[is_different_chrom] = numpy.nan
+
+                    if dists is None:
+                        dists = numpy.full((tot_num_vars, tot_num_vars), numpy.nan)
+                        res["dists_in_bp"] = dists
+                    dists[row_start:row_end, col_start:col_end] = this_dists
+
+            col_start = col_end
+        row_start = row_end
+
+    return res
+
+
 LDResult = namedtuple(
     "LDResult", ["r2", "chrom_var1", "pos_var1", "chrom_var2", "pos_var2", "dist_in_bp"]
 )
@@ -100,6 +184,8 @@ LDResult = namedtuple(
 def calc_pairwise_rogers_huff_r2(
     vars, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
+    # This is the slower alternative, calc_rogers_huff_r2_matrix is much faster,
+    # but if you have many vars and the calculation does not fit in memory, use this one
     chunks = vars.iter_vars_chunks()
     chunk_pairs = itertools.combinations_with_replacement(chunks, 2)
 
