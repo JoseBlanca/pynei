@@ -213,8 +213,7 @@ class VariantsChunk:
 
 
 class ChunkIterFactory(Protocol):
-    def peek_first_chunk(self) -> VariantsChunk:
-        # It might raise a RuntimeError if it is called after calling iter_vars_chunks
+    def _get_metadata(self):
         pass
 
     def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
