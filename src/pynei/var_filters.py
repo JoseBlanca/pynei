@@ -1,4 +1,5 @@
 from functools import partial
+import itertools
 
 import numpy
 
@@ -13,14 +14,39 @@ from pynei.gt_counts import (
 class _FilterChunkIterFactory:
     def __init__(self, in_vars, filter_funct):
         self.in_vars = in_vars
+        self._chunks = in_vars.iter_vars_chunks()
         self.filter_funct = filter_funct
         self.num_vars_processed = 0
         self.num_vars_kept = 0
+        self._metadata = None
+
+    def _get_metadata(self):
+        if self._metadata is not None:
+            return self._metadata.copy()
+
+        try:
+            first_chunk = next(self.iter_vars_chunks())
+        except StopIteration:
+            raise RuntimeError("No variations to get the data from")
+
+        self._chunks = itertools.chain([first_chunk], self._chunks)
+
+        self._metadata = {
+            "samples": first_chunk.gts.samples,
+            "num_samples": first_chunk.num_samples,
+            "ploidy": first_chunk.gts.ploidy,
+        }
+        return self._metadata.copy()
 
     def iter_vars_chunks(self):
-        filter_funct = self.filter_funct
-        for chunk in self.in_vars.iter_vars_chunks():
-            filtered_chunk, num_vars_kept = filter_funct(chunk)
+        for chunk in self._chunks:
+            if self._metadata is None:
+                self._metadata = {
+                    "samples": chunk.gts.samples,
+                    "num_samples": chunk.num_samples,
+                    "ploidy": chunk.gts.ploidy,
+                }
+            filtered_chunk, num_vars_kept = self.filter_funct(chunk)
             self.num_vars_processed += chunk.num_vars
             self.num_vars_kept += num_vars_kept
             yield filtered_chunk

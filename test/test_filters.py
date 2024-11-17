@@ -76,3 +76,28 @@ def test_filter_obs_het():
     vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=4 / 5)
     filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, True, True], ...] == filtered_gts)
+
+
+def test_metadata():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [0, 0], [0, 1], [1, 0], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+        ]
+    )
+    # before filtering
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    assert vars.num_samples == 5
+    assert vars.ploidy == 2
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
+
+    # after filtering
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
+    assert vars.num_samples == 5
+    assert vars.ploidy == 2
