@@ -5,6 +5,7 @@ description = "Population genetics with python"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "more-itertools>=10.5.0",
     "numpy>=2.1.0",
     "pandas>=2.2.2",
     "pyarrow>=18.0.0",
