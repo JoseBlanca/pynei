@@ -203,13 +203,15 @@ class VariantsChunk:
         return self._arrays["alleles"]
 
     def get_vars(self, index):
+        if not isinstance(index, slice):
+            index = list(index)
         gts = self.gts.get_vars(index)
         if self.vars_info is not None:
-            vars_info = self.vars_info.iloc[index, ...]
+            vars_info = self.vars_info.loc[index, ...]
         else:
             vars_info = None
         if self.alleles is not None:
-            alleles = self.alleles.iloc[index, ...]
+            alleles = self.alleles.loc[index, ...]
         else:
             alleles = None
         return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
