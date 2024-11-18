@@ -22,7 +22,16 @@ class _ChunkIteratorFactory:
         self.dist_between_vars = dist_between_vars
         self.create_gts_funct = create_gts_funct
         self.num_samples = num_samples
+        self.samples = list(range(1, num_samples + 1))
         self.chunk_size = chunk_size
+        self.ploidy = 2
+
+    def _get_metadata(self):
+        return {
+            "samples": self.samples,
+            "num_samples": self.num_samples,
+            "ploidy": self.ploidy,
+        }
 
     def iter_vars_chunks(self):
         chrom_names = [f"chrom_{idx}" for idx in range(1, self.num_chroms + 1)]

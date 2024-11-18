@@ -13,6 +13,8 @@ from pynei.ld import (
     _calc_rogers_huff_r2,
     calc_pairwise_rogers_huff_r2,
     calc_rogers_huff_r2_matrix,
+    get_ld_and_dist_for_pops,
+    LDCalcMethod,
 )
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from .var_generator import generate_vars
@@ -317,3 +319,27 @@ def test_pairwiseld():
     # print(time3 - time2)
     assert numpy.allclose(res["dists_in_bp"][0, :3], [0, 100, 200])
     assert res["r2"].shape == (num_vars * num_chroms, num_vars * num_chroms)
+
+
+def test_ld_vs_dist():
+    num_vars = 30
+    num_chroms = 2
+    num_samples = 20
+    vars = generate_vars(
+        num_chroms=num_chroms,
+        num_vars_per_chrom=num_vars,
+        dist_between_vars=100,
+        create_gts_funct=partial(
+            create_gts,
+            independence_rate=0.5,
+            geno_freqs={(0, 0): 0.45, (1, 0): 0.45, (1, 1): 0.45},
+        ),
+        num_samples=num_samples,
+        chunk_size=num_vars,
+    )
+    pops = {"pop1": slice(10), "pop2": slice(10, None)}
+    next(vars.iter_vars_chunks())
+    res = get_ld_and_dist_for_pops(vars, pops=pops, method=LDCalcMethod.MATRIX)
+    assert sorted(res.keys()) == ["pop1", "pop2"]
+    get_ld_and_dist_for_pops(vars, pops=pops, method=LDCalcMethod.GENERATOR)
+    assert sorted(res.keys()) == ["pop1", "pop2"]

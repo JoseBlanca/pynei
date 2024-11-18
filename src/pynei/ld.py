@@ -1,11 +1,15 @@
 import itertools
 from functools import partial
 from collections import namedtuple
+from typing import Sequence
+from enum import Enum
 
 import numpy
 import pandas
+import more_itertools
 
-from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL
+from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL, DEF_POP_NAME
+from pynei.var_filters import filter_by_maf, filter_samples
 
 DDOF = 1
 
@@ -245,6 +249,52 @@ def calc_pairwise_rogers_huff_r2(
 
                 pair_r2 = float(r2[idx1, idx2])
                 yield LDResult(pair_r2, chrom1, pos1, chrom2, pos2, dist)
+
+
+class LDCalcMethod(Enum):
+    GENERATOR = "generator"
+    MATRIX = "matrix"
+
+
+def get_ld_and_dist_for_pops(
+    vars,
+    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    max_dist: int | None = None,
+    max_allowed_maf=0.95,
+    method=LDCalcMethod.GENERATOR,
+    max_num_measures_to_keep=10000,
+):
+    if pops is None:
+        pops = {DEF_POP_NAME: slice(None, None)}
+
+    ld_per_pop = {}
+    for pop_name, samples in pops.items():
+        pop_vars = filter_samples(vars, samples)
+        pop_vars = filter_by_maf(pop_vars, max_allowed_maf=max_allowed_maf)
+        if method == LDCalcMethod.GENERATOR:
+            lds_and_dists = (
+                (res.r2, res.dist_in_bp)
+                for res in calc_pairwise_rogers_huff_r2(
+                    pop_vars, max_dist=max_dist, check_no_mafs_above=None
+                )
+                if res.dist_in_bp is not None
+            )
+        elif method == LDCalcMethod.MATRIX:
+            res = calc_rogers_huff_r2_matrix(
+                pop_vars, max_dist=max_dist, check_no_mafs_above=None
+            )
+            r2 = res["r2"].flat
+            dists = res["dists_in_bp"].flat
+            mask = ~numpy.isnan(dists)
+            r2 = r2[mask]
+            dists = dists[mask]
+            lds_and_dists = [(float(r2), float(ld)) for r2, ld in zip(r2, dists)]
+
+        lds_and_dists = more_itertools.sample(
+            lds_and_dists, k=max_num_measures_to_keep, strict=False
+        )
+        ld_per_pop[pop_name] = lds_and_dists
+    return ld_per_pop
 
 
 # calc_ld_along_genome()
