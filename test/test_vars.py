@@ -24,7 +24,7 @@ def test_gts():
     gts2 = gts.get_vars(vars_slice)
     assert numpy.array_equal(gts2.gt_values, gt_array[vars_slice, :, :])
 
-    gts2 = gts.get_samples(["b", "d"])
+    gts2 = gts.filter_samples(["b", "d"])
     assert numpy.array_equal(gts2.gt_values, gt_array[:, [1, 3], :])
 
     with pytest.raises(ValueError):
