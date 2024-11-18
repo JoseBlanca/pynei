@@ -1,9 +1,10 @@
 from functools import partial
 import itertools
+from typing import Sequence
 
 import numpy
 
-from pynei.variants import Variants
+from pynei.variants import Variants, VariantsChunk
 from pynei.gt_counts import (
     _calc_gt_is_missing,
     _calc_maf_per_var,
@@ -142,6 +143,24 @@ def filter_by_obs_het(vars: Variants, max_allowed_obs_het: float):
         _filter_chunk_by_obs_het, max_allowed_obs_het=max_allowed_obs_het
     )
     chunk_factory = _ObsHetFilterIterFactory(vars, filter_chunk)
+    return Variants(
+        vars_chunk_iter_factory=chunk_factory,
+        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+    )
+
+
+def _filter_samples(chunk, sample_idxs):
+    gts = chunk.gts.filter_samples_with_idxs(sample_idxs)
+    chunk = VariantsChunk(gts, vars_info=chunk.vars_info, alleles=chunk.alleles)
+    return chunk, chunk.num_vars
+
+
+def filter_samples(vars, samples: Sequence[str] | Sequence[int]) -> Variants:
+    orig_samples = vars.samples
+    sample_idxs = numpy.where(numpy.isin(orig_samples, samples))[0]
+
+    filter_samples = partial(_filter_samples, sample_idxs=sample_idxs)
+    chunk_factory = _MissingFilterIterFactory(vars, filter_samples)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
         desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,

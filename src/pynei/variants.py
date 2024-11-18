@@ -99,6 +99,14 @@ class Genotypes:
         gts.flags.writeable = False
         return self.__class__(gt_array=gts, samples=self.samples)
 
+    def filter_samples_with_idxs(self, index):
+        gts = self.gt_ma_array[:, index, :]
+        samples = self.samples[index]
+
+        samples.flags.writeable = False
+        gts.flags.writeable = False
+        return self.__class__(gt_array=gts, samples=samples)
+
     def get_samples(self, samples: Sequence[str] | Sequence[int]) -> Self:
         if self.samples is None:
             raise ValueError("Cannot get samples from Genotypes without samples")
@@ -106,12 +114,7 @@ class Genotypes:
         if not isinstance(samples, SequenceABC):
             raise ValueError("samples must be a sequence")
         index = numpy.where(numpy.isin(self.samples, samples))[0]
-        gts = self.gt_ma_array[:, index, :]
-        samples = self.samples[index]
-
-        samples.flags.writeable = False
-        gts.flags.writeable = False
-        return self.__class__(gt_array=gts, samples=samples)
+        return self.filter_sample_with_idxs(index)
 
     def to_012(self) -> numpy.ndarray:
         res = _count_alleles_per_var(VariantsChunk(self), calc_freqs=False)

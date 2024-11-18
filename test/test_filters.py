@@ -7,6 +7,7 @@ from pynei.var_filters import (
     filter_by_maf,
     filter_by_obs_het,
     gather_filtering_stats,
+    filter_samples,
 )
 
 
@@ -101,3 +102,16 @@ def test_metadata():
     assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
     assert vars.num_samples == 5
     assert vars.ploidy == 2
+
+
+def test_filter_samples():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [0, 0], [0, 1], [1, 0], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_samples(orig_vars, samples=[0, 1, 2])
+    assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
