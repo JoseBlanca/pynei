@@ -115,3 +115,6 @@ def test_filter_samples():
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
     vars = filter_samples(orig_vars, samples=[0, 1, 2])
     assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
+
+    vars = filter_samples(orig_vars, samples=slice(3))
+    assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])

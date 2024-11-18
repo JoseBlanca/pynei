@@ -155,8 +155,10 @@ def _filter_samples(chunk, sample_idxs):
     return chunk, chunk.num_vars
 
 
-def filter_samples(vars, samples: Sequence[str] | Sequence[int]) -> Variants:
+def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Variants:
     orig_samples = vars.samples
+    if isinstance(samples, slice):
+        samples = orig_samples[samples]
     sample_idxs = numpy.where(numpy.isin(orig_samples, samples))[0]
 
     filter_samples = partial(_filter_samples, sample_idxs=sample_idxs)
