@@ -155,6 +155,10 @@ def _filter_samples(chunk, sample_idxs):
     return chunk, chunk.num_vars
 
 
+class _SampleFilterIterFactory(_FilterChunkIterFactory):
+    kind = "sample"
+
+
 def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Variants:
     orig_samples = vars.samples
     if isinstance(samples, slice):
@@ -162,7 +166,7 @@ def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Vari
     sample_idxs = numpy.where(numpy.isin(orig_samples, samples))[0]
 
     filter_samples = partial(_filter_samples, sample_idxs=sample_idxs)
-    chunk_factory = _MissingFilterIterFactory(vars, filter_samples)
+    chunk_factory = _SampleFilterIterFactory(vars, filter_samples)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
         desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
