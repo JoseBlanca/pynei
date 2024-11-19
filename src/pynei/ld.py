@@ -260,6 +260,7 @@ def get_ld_and_dist_for_pops(
     vars,
     pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
     max_dist: int | None = None,
+    min_dist: int | None = 1,
     max_allowed_maf=0.95,
     method=LDCalcMethod.GENERATOR,
     max_num_measures_to_keep=10000,
@@ -290,6 +291,8 @@ def get_ld_and_dist_for_pops(
             dists = dists[mask]
             lds_and_dists = [(float(r2), float(ld)) for r2, ld in zip(r2, dists)]
 
+        if min_dist:
+            lds_and_dists = filter(lambda x: x[1] > min_dist, lds_and_dists)
         lds_and_dists = more_itertools.sample(
             lds_and_dists, k=max_num_measures_to_keep, strict=False
         )
