@@ -230,8 +230,9 @@ class FromGtChunkIterFactory:
     def __init__(
         self,
         gts: Genotypes,
+        vars_info=None,
     ):
-        chunk = VariantsChunk(gts=gts)
+        chunk = VariantsChunk(gts=gts, vars_info=vars_info)
         self._chunks = [chunk]
 
     def _get_metadata(self):
@@ -286,6 +287,7 @@ class Variants:
         cls,
         gts: numpy.ndarray | numpy.ma.masked_array,
         samples: list[str] | None = None,
+        vars_info: pandas.DataFrame | None = None,
     ) -> Self:
         if not numpy.ma.isarray(gts):
             missing_mask = gts == MISSING_ALLELE
@@ -296,6 +298,7 @@ class Variants:
         return cls(
             vars_chunk_iter_factory=FromGtChunkIterFactory(
                 Genotypes(gts, skip_mask_check=skip_mask_check, samples=samples),
+                vars_info=vars_info,
             )
         )
 
