@@ -293,9 +293,16 @@ def get_ld_and_dist_for_pops(
 
         if min_dist:
             lds_and_dists = filter(lambda x: x[1] > min_dist, lds_and_dists)
-        lds_and_dists = more_itertools.sample(
-            lds_and_dists, k=max_num_measures_to_keep, strict=False
-        )
+        try:
+            lds_and_dists = more_itertools.sample(
+                lds_and_dists, k=max_num_measures_to_keep, strict=False
+            )
+        except TypeError:
+            # old versions of more-itertools.sample seem to lack the strict argument
+            lds_and_dists = more_itertools.sample(
+                lds_and_dists,
+                k=max_num_measures_to_keep,
+            )
         ld_per_pop[pop_name] = lds_and_dists
     return ld_per_pop
 
