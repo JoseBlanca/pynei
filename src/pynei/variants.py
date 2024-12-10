@@ -207,7 +207,7 @@ class VariantsChunk:
             index = list(index)
         gts = self.gts.get_vars(index)
         if self.vars_info is not None:
-            vars_info = self.vars_info.loc[index, ...]
+            vars_info = self.vars_info.iloc[index, ...]
         else:
             vars_info = None
         if self.alleles is not None:
