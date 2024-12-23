@@ -182,10 +182,6 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
         return filtered_chunk, 0, ref_gt
 
     gts_012 = filtered_chunk.gts.to_012()
-    print("chunk gts_012")
-    print(gts_012)
-    print("given ref gt")
-    print(ref_gt)
     var_offset = 0
 
     while True:
@@ -195,17 +191,12 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
             if gts_012.shape[0] == 1:
                 break
             else:
-                print("first ref gt")
-                print(ref_gt)
                 gts_012 = gts_012[1:, :]
                 var_offset = 1
 
-        print(f"{ref_gt=}")
-        print(f"{gts_012=}")
         r2 = _calc_rogers_huff_r2(ref_gt, gts_012, check_no_mafs_above=None).flat
 
         unlinked_vars = numpy.where(r2 < min_allowed_r2)[0]
-        print(f"{unlinked_vars=}")
         if not unlinked_vars.size:
             break
         first_non_linked_var_idx = unlinked_vars[0]
@@ -213,8 +204,6 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
         selected_vars.append(first_non_linked_var_idx + var_offset)
 
         ref_gt = gts_012[first_non_linked_var_idx : first_non_linked_var_idx + 1, :]
-        print("new ref gt")
-        print(ref_gt)
 
         if first_non_linked_var_idx == gts_012.shape[0] - 1:
             # this is the last var of the chunk
@@ -223,7 +212,6 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
         gts_012 = gts_012[first_non_linked_var_idx + 1 :, :]
 
         var_offset += first_non_linked_var_idx + 1
-    print(f"{selected_vars=}")
     filtered_chunk = filtered_chunk.get_vars(selected_vars)
     return filtered_chunk, len(selected_vars), ref_gt
 
