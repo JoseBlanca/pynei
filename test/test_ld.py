@@ -17,7 +17,7 @@ from pynei.ld import (
     LDCalcMethod,
 )
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
-from .var_generator import generate_vars
+from .var_generators import generate_vars
 
 
 def create_gts_for_sample(num_samples, geno_freqs):

@@ -1,10 +1,11 @@
 from functools import partial
+from typing import Iterator
 
 import numpy
 import pandas
 
 from pynei.variants import Genotypes, VariantsChunk, Variants
-from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL
+from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL, MISSING_ALLELE
 
 
 class _ChunkIteratorFactory:
@@ -96,3 +97,31 @@ if __name__ == "__main__":
         num_samples=10,
         chunk_size=10,
     )
+
+
+class _FromGtListChunkIterFactory:
+    def __init__(self, gts: list[numpy.array], samples=None):
+        chunks = [
+            VariantsChunk(
+                gts=Genotypes(
+                    numpy.ma.array(
+                        gt, mask=gts == MISSING_ALLELE, fill_value=MISSING_ALLELE
+                    ),
+                    skip_mask_check=True,
+                    samples=samples,
+                ),
+            )
+            for gt in gts
+        ]
+        self._chunks = chunks
+
+    def _get_metadata(self):
+        first_chunk = self._chunks[0]
+        return {
+            "samples": first_chunk.gts.samples,
+            "num_samples": first_chunk.num_samples,
+            "ploidy": first_chunk.gts.ploidy,
+        }
+
+    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
+        return iter(self._chunks)

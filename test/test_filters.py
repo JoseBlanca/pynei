@@ -10,6 +10,7 @@ from pynei.var_filters import (
     filter_samples,
     filter_by_ld_and_maf,
 )
+from .var_generators import _FromGtListChunkIterFactory
 
 
 def test_filter_missing():
@@ -183,6 +184,26 @@ def test_filter_ld():
     vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
     chunk = next(vars.iter_vars_chunks())
     assert numpy.all(gts[[True, False, False], :] == chunk.gts.gt_values)
+
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 1], [0, 0], [2, 0], [1, 0], [0, 0]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+        ]
+    )
+    for len_chunk in range(1, 5):
+        orig_vars = Variants(
+            _FromGtListChunkIterFactory(gts=[gts]),
+            desired_num_vars_per_chunk=len_chunk,
+        )
+        vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+        filtered_gts = numpy.vstack(
+            [chunk.gts.gt_values for chunk in vars.iter_vars_chunks()]
+        )
+        assert numpy.all(gts[[True, False, True, True, False], :] == filtered_gts)
 
     return
     filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
