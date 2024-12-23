@@ -205,13 +205,5 @@ def test_filter_ld():
         )
         assert numpy.all(gts[[True, False, True, True, False], :] == filtered_gts)
 
-    return
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
-    assert numpy.all(gts[[True, True, False], ...] == filtered_gts)
-
-    return
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
-    assert numpy.all(gts[[False, True, False], ...] == filtered_gts)
-
-    stats = gather_filtering_stats(vars)
-    assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}
+        stats = gather_filtering_stats(vars)
+        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 3}}
