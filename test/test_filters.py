@@ -8,6 +8,7 @@ from pynei.var_filters import (
     filter_by_obs_het,
     gather_filtering_stats,
     filter_samples,
+    filter_by_ld_and_maf,
 )
 
 
@@ -118,3 +119,78 @@ def test_filter_samples():
 
     vars = filter_samples(orig_vars, samples=slice(3))
     assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
+
+
+def test_filter_ld():
+    gts = numpy.array(
+        [
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    with pytest.raises(StopIteration):
+        next(vars.iter_vars_chunks())
+
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 1], [0, 0], [2, 0], [1, 0], [0, 0]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
+
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 1], [0, 0], [2, 0], [1, 0], [0, 0]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, False, True, True, False], :] == chunk.gts.gt_values)
+
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [0, 0], [0, 1], [1, 0], [1, 1]],
+            [[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, True, False], :] == chunk.gts.gt_values)
+
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+        ]
+    )
+    orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, False, False], :] == chunk.gts.gt_values)
+
+    return
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[True, True, False], ...] == filtered_gts)
+
+    return
+    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    assert numpy.all(gts[[False, True, False], ...] == filtered_gts)
+
+    stats = gather_filtering_stats(vars)
+    assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}

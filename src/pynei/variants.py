@@ -306,11 +306,11 @@ class Variants:
 def _concat_genotypes(genotypes: Sequence[Genotypes]):
     gtss = []
     for gts in genotypes:
-        if gts.samples != genotypes[0].samples:
+        if not numpy.all(gts.samples == genotypes[0].samples):
             raise ValueError("All genotypes must have the same samples")
-        gtss.append(gts.gt_array)
+        gtss.append(gts.gt_ma_array)
     gts = numpy.vstack(gtss)
-    return Genotypes(genotypes=gts, samples=genotypes[0].samples)
+    return Genotypes(gt_array=gts, samples=genotypes[0].samples)
 
 
 def _concatenate_arrays(arrays: list[ArrayType]) -> ArrayType:
@@ -333,13 +333,17 @@ def _concatenate_chunks(chunks: list[VariantsChunk]):
     if len(chunks) == 1:
         return chunks[0]
 
-    arrays_to_concatenate = {"gts": [], "vars_info": [], "alleles": []}
+    arrays_to_concatenate = {"gts": []}
     for chunk in chunks:
         if chunk.gts:
             arrays_to_concatenate["gts"].append(chunk.gts)
-        if chunk.vars_info:
+        if chunk.vars_info is not None:
+            if "vars_info" not in arrays_to_concatenate:
+                arrays_to_concatenate["vars_info"] = []
             arrays_to_concatenate["vars_info"].append(chunk.vars_info)
-        if chunk.alleles:
+        if chunk.alleles is not None:
+            if "alleles" not in arrays_to_concatenate:
+                arrays_to_concatenate["alleles"] = []
             arrays_to_concatenate["alleles"].append(chunk.alleles)
 
     num_arrays = [len(arrays) for arrays in arrays_to_concatenate.values()]

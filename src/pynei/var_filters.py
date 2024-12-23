@@ -10,6 +10,7 @@ from pynei.gt_counts import (
     _calc_maf_per_var,
     _calc_obs_het_per_var,
 )
+from .ld_calc import _calc_rogers_huff_r2
 
 
 class _FilterChunkIterFactory:
@@ -173,5 +174,73 @@ def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Vari
     )
 
 
-# TODO
-# var QUAL
+def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
+    selected_vars = []
+    filtered_chunk, _ = filter_chunk_by_maf(chunk)
+
+    if not filtered_chunk.num_vars:
+        return filtered_chunk, 0, ref_gt
+    # maybe there's no SNP
+    gts_012 = filtered_chunk.gts.to_012()
+    var_offset = None
+
+    while True:
+        if ref_gt is None:
+            ref_gt = gts_012[0, :].reshape((1, gts_012.shape[1]))
+            selected_vars.append(0)
+            gts_012 = gts_012[1:, :]
+            var_offset = 1
+
+        r2 = _calc_rogers_huff_r2(ref_gt, gts_012, check_no_mafs_above=None).flat
+
+        unlinked_vars = numpy.where(r2 < min_allowed_r2)[0]
+        if not unlinked_vars.size:
+            break
+        first_non_linked_var_idx = unlinked_vars[0]
+
+        selected_vars.append(first_non_linked_var_idx + var_offset)
+
+        if first_non_linked_var_idx == gts_012.shape[0] - 1:
+            # this is the last var of the chunk
+            break
+
+        ref_gt = gts_012[first_non_linked_var_idx : first_non_linked_var_idx + 1, :]
+        gts_012 = gts_012[first_non_linked_var_idx + 1 :, :]
+
+        var_offset += first_non_linked_var_idx + 1
+
+    filtered_chunk = filtered_chunk.get_vars(selected_vars)
+    return filtered_chunk, len(selected_vars), ref_gt
+
+
+class _FilterLDChunkIterFactory(_FilterChunkIterFactory):
+    kind = "ld_and_maf"
+
+    def iter_vars_chunks(self):
+        ref_gt = None
+        for chunk in self._chunks:
+            if self._metadata is None:
+                self._metadata = {
+                    "samples": chunk.gts.samples,
+                    "num_samples": chunk.num_samples,
+                    "ploidy": chunk.gts.ploidy,
+                }
+            filtered_chunk, num_vars_kept, ref_gt = self.filter_funct(chunk, ref_gt)
+            self.num_vars_processed += chunk.num_vars
+            self.num_vars_kept += num_vars_kept
+            yield filtered_chunk
+
+
+def filter_by_ld_and_maf(vars, min_allowed_r2=0.1, max_allowed_maf=0.95) -> Variants:
+    filter_chunk_by_maf = partial(_filter_chunk_by_maf, max_allowed_maf=max_allowed_maf)
+    filter_chunk_by_ld = partial(
+        _filter_chunk_by_ld,
+        filter_chunk_by_maf=filter_chunk_by_maf,
+        min_allowed_r2=min_allowed_r2,
+    )
+
+    chunk_factory = _FilterLDChunkIterFactory(vars, filter_chunk_by_ld)
+    return Variants(
+        vars_chunk_iter_factory=chunk_factory,
+        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+    )
