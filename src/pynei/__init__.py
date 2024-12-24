@@ -8,6 +8,7 @@ from pynei.io_vcf import vars_from_vcf
 from pynei.var_filters import (
     filter_by_missing_data,
     filter_by_maf,
+    filter_by_ld_and_maf,
     gather_filtering_stats,
 )
 from pynei.ld import get_ld_and_dist_for_pops
