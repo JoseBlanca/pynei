@@ -195,6 +195,7 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
                 var_offset = 1
 
         r2 = _calc_rogers_huff_r2(ref_gt, gts_012, check_no_mafs_above=None).flat
+        r2 = numpy.abs(r2)
 
         unlinked_vars = numpy.where(r2 < min_allowed_r2)[0]
         if not unlinked_vars.size:
