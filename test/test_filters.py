@@ -138,8 +138,8 @@ def test_filter_ld():
     gts = numpy.array(
         [
             [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
-            [[0, 1], [0, 0], [2, 0], [1, 0], [0, 0]],
-            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+            [[0, 1], [1, 0], [2, 2], [1, 0], [0, 0]],
+            [[1, 1], [2, 2], [0, 1], [0, 0], [1, 2]],
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
@@ -159,7 +159,7 @@ def test_filter_ld():
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
     vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
     chunk = next(vars.iter_vars_chunks())
-    assert numpy.all(gts[[True, False, True, True, False], :] == chunk.gts.gt_values)
+    assert numpy.all(gts[[True, False, False, True, False], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
         [
@@ -171,7 +171,7 @@ def test_filter_ld():
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
     vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
     chunk = next(vars.iter_vars_chunks())
-    assert numpy.all(gts[[True, True, False], :] == chunk.gts.gt_values)
+    assert numpy.all(gts[[True, False, False], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
         [
@@ -203,7 +203,7 @@ def test_filter_ld():
         filtered_gts = numpy.vstack(
             [chunk.gts.gt_values for chunk in vars.iter_vars_chunks()]
         )
-        assert numpy.all(gts[[True, False, True, True, False], :] == filtered_gts)
+        assert numpy.all(gts[[True, False, False, True, False], :] == filtered_gts)
 
         stats = gather_filtering_stats(vars)
-        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 3}}
+        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
