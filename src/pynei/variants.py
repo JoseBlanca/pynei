@@ -262,9 +262,14 @@ class Variants:
     def _get_orig_vars_iter(self):
         return self._vars_chunks_iter_factory.iter_vars_chunks()
 
-    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
+    def iter_vars_chunks(
+        self, desired_num_vars_per_chunk: int | None = None
+    ) -> Iterator[VariantsChunk]:
+        if desired_num_vars_per_chunk is None:
+            desired_num_vars_per_chunk = self.desired_num_vars_per_chunk
+
         return _resize_chunks(
-            self._get_orig_vars_iter(), desired_num_rows=self.desired_num_vars_per_chunk
+            self._get_orig_vars_iter(), desired_num_rows=desired_num_vars_per_chunk
         )
 
     def _get_metadata(self):
