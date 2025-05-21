@@ -4,3 +4,4 @@ src/pynei/__pycache__/
 test/__pycache__/
 .pyodide-xbuildenv-0.27.3/
 pytest.ini
+*.pyc
