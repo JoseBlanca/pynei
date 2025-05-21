@@ -2,7 +2,7 @@ from array import array
 
 import numpy
 
-vcf_path = "../nei_rs/snps.vcf.gz"
+vcf_path = "/home/jose/analyses/g2psol/source_data/TS.vcf.gz"
 
 
 def gt_to_int(gt):
@@ -141,13 +141,13 @@ if False:
 
         print(parsed_gts)
 
-elif False:
+elif True:
     import gzip
     import polars
 
     table = polars.read_csv(
         gzip.open(vcf_path, "rt"),
-        skip_rows=2,
+        skip_rows=51,
         separator="\t",
         try_parse_dates=False,
         n_threads=1,
@@ -170,10 +170,9 @@ elif False:
         .str.split(by="/")
         .list.eval(polars.element().str.replace(".", "-1"))
         .cast(polars.List(polars.Int32))
-        .list.to_array(2)
-        # .list.to_struct()
+        # .list.to_array(2)
     )
-    gts = polars_table_of_arrays_to_3d_numpy(gts)
+    # gts = polars_table_of_arrays_to_3d_numpy(gts)
     print(gts)
 elif True:
     from pynei.io_vcf import parse_vcf
