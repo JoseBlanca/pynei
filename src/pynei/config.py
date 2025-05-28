@@ -22,10 +22,7 @@ BYTE_SIZE_OF_INT = array.array(PYTHON_ARRAY_TYPE, [0]).itemsize
 MAX_ALLELE_NUMBER = {1: 127, 2: 32767, 4: 2147483647}[BYTE_SIZE_OF_INT]
 GT_NUMPY_DTYPE = {2: numpy.int16, 4: numpy.int32}[BYTE_SIZE_OF_INT]
 
-PANDAS_STRING_STORAGE = (
-    "python"  # when pyodide supports pyarrow, we will change this to 'pyarrow'
-)
-# PANDAS_STRING_STORAGE = "pyarrow"
+PANDAS_STRING_STORAGE = "pyarrow"
 DEF_NUM_VARS_PER_CHUNK = 10000
 LINEAL = "lineal"
 LOGARITHMIC = "logarithmic"
