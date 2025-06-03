@@ -8,7 +8,6 @@ dependencies = [
     "more-itertools>=10.5.0",
     "numpy>=2.1.0",
     "pandas>=2.2.2",
-    "polars>=1.29.0",
     "pyarrow>=18.0.0",
     "scipy>=1.14.1",
 ]
