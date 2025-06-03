@@ -4,7 +4,8 @@
 
 Download the latest pyodide release from: https://github.com/pyodide/pyodide/releases
 
-For instance, you can download: https://github.com/pyodide/pyodide/releases/download/0.26.1/pyodide-0.26.1.tar.bz2
+For instance, you can download:
+https://github.com/pyodide/pyodide/releases/download/0.27.6/pyodide-0.27.6.tar.bz2
 
 Unzip the pyodide distribution.
 

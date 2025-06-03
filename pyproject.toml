@@ -26,4 +26,5 @@ build-backend = "hatchling.build"
 dev-dependencies = [
     "ruff>=0.6.1",
     "pytest>=8.3.2",
+    "pytest-pyodide>=0.58.4",
 ]
