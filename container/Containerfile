@@ -47,6 +47,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --compile-bytecode --no-install-project
 
+# Create a virtualenv using the free-threaded Python
+RUN uv venv --python cpython-3.13.3+freethreaded
+# Activate it and install ruamel.yaml with --no-deps to avoid ruamel-yaml-clib
+RUN uv pip install --python cpython-3.13.3+freethreaded ruamel.yaml --no-deps
+# Optional: precompile py files for performance
+RUN uv run --python cpython-3.13.3+freethreaded python -m compileall -q /app
+
 # nvm
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
