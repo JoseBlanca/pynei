@@ -226,6 +226,48 @@ def parse_vcf(vcf_path: Path):
     return {"metadata": metadata, "vars": vars, "fhand": fhand}
 
 
+def _parse_vcf_vars_chunk(vars_chunk, samples):
+    chroms = []
+    poss = []
+    ids = []
+    quals = []
+    alleles = []
+    gts = []
+    missing_masks = []
+    max_num_alleles = 0
+    for var in vars_chunk:
+        chroms.append(var["chrom"])
+        poss.append(var["pos"])
+        ids.append(var["id"])
+        quals.append(var["qual"])
+        alleles.append(var["alleles"])
+        max_num_alleles = max(max_num_alleles, len(var["alleles"]))
+        gts.append(var["gts"])
+        missing_masks.append(var["missing_mask"])
+    vars_info = pandas.DataFrame(
+        {
+            config.VAR_TABLE_CHROM_COL: pandas.Series(
+                chroms, dtype=config.PANDAS_STR_DTYPE()
+            ),
+            config.VAR_TABLE_POS_COL: pandas.Series(
+                poss, dtype=config.PANDAS_INT_DTYPE()
+            ),
+            config.VAR_TABLE_ID_COL: pandas.Series(
+                ids, dtype=config.PANDAS_STR_DTYPE()
+            ),
+            config.VAR_TABLE_QUAL_COL: pandas.Series(
+                quals, dtype=config.PANDAS_FLOAT_DTYPE()
+            ),
+        },
+    )
+    alleles = pandas.DataFrame(alleles, dtype=config.PANDAS_STR_DTYPE())
+    gts = numpy.ma.array(gts, mask=missing_masks, fill_value=config.MISSING_ALLELE)
+    gts.flags.writeable = False
+    gts = Genotypes(gts, samples=samples, skip_mask_check=True)
+    chunk = VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
+    return chunk
+
+
 class _FromVCFChunkIterFactory:
     def __init__(self, vcf_path):
         self.vcf_path = vcf_path
@@ -240,47 +282,7 @@ class _FromVCFChunkIterFactory:
 
         vars_chunks = itertools.batched(res["vars"], config.DEF_NUM_VARS_PER_CHUNK)
         for vars_chunk in vars_chunks:
-            chroms = []
-            poss = []
-            ids = []
-            quals = []
-            alleles = []
-            gts = []
-            missing_masks = []
-            max_num_alleles = 0
-            for var in vars_chunk:
-                chroms.append(var["chrom"])
-                poss.append(var["pos"])
-                ids.append(var["id"])
-                quals.append(var["qual"])
-                alleles.append(var["alleles"])
-                max_num_alleles = max(max_num_alleles, len(var["alleles"]))
-                gts.append(var["gts"])
-                missing_masks.append(var["missing_mask"])
-            vars_info = pandas.DataFrame(
-                {
-                    config.VAR_TABLE_CHROM_COL: pandas.Series(
-                        chroms, dtype=config.PANDAS_STR_DTYPE()
-                    ),
-                    config.VAR_TABLE_POS_COL: pandas.Series(
-                        poss, dtype=config.PANDAS_INT_DTYPE()
-                    ),
-                    config.VAR_TABLE_ID_COL: pandas.Series(
-                        ids, dtype=config.PANDAS_STR_DTYPE()
-                    ),
-                    config.VAR_TABLE_QUAL_COL: pandas.Series(
-                        quals, dtype=config.PANDAS_FLOAT_DTYPE()
-                    ),
-                },
-            )
-            alleles = pandas.DataFrame(alleles, dtype=config.PANDAS_STR_DTYPE())
-            gts = numpy.ma.array(
-                gts, mask=missing_masks, fill_value=config.MISSING_ALLELE
-            )
-            gts.flags.writeable = False
-            gts = Genotypes(gts, samples=samples, skip_mask_check=True)
-            chunk = VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
-            yield chunk
+            yield _parse_vcf_vars_chunk(vars_chunk, samples)
         fhand.close()
 
     def _get_metadata(self):
