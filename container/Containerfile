@@ -52,7 +52,10 @@ RUN uv venv --python cpython-3.13.3+freethreaded
 # Activate it and install ruamel.yaml with --no-deps to avoid ruamel-yaml-clib
 RUN uv pip install --python cpython-3.13.3+freethreaded ruamel.yaml --no-deps
 # Optional: precompile py files for performance
-RUN uv run --python cpython-3.13.3+freethreaded python -m compileall -q /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --python cpython-3.13.3+freethreaded --locked --compile-bytecode --no-install-project
 
 # nvm
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
@@ -65,14 +68,3 @@ RUN wget https://github.com/pyodide/pyodide/releases/download/"${PYODIDE_VERSION
     tar xjf pyodide-"${PYODIDE_VERSION}".tar.bz2 && \
     rm pyodide-"${PYODIDE_VERSION}".tar.bz2
 
-# Copy the project into the image
-ADD src /app/src
-ADD test /app/test
-ADD pyproject.toml /app/pyproject.toml
-ADD uv.lock /app/uv.lock
-ADD .python-version /app/.python-version
-ADD pytest.ini /app/pytest.ini
-ADD README.md /app/README.md
-# Sync the project
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
