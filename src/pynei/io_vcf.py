@@ -269,7 +269,10 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
 
 
 class _FromVCFChunkIterFactory:
-    def __init__(self, vcf_path):
+    def __init__(
+        self, vcf_path, desired_num_vars_per_chunk=config.DEF_NUM_VARS_PER_CHUNK
+    ):
+        self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
         self.vcf_path = vcf_path
         res = parse_vcf(self.vcf_path)
         self.metadata = res["metadata"]
@@ -280,7 +283,7 @@ class _FromVCFChunkIterFactory:
         fhand = res["fhand"]
         samples = self.metadata["samples"]
 
-        vars_chunks = itertools.batched(res["vars"], config.DEF_NUM_VARS_PER_CHUNK)
+        vars_chunks = itertools.batched(res["vars"], self.desired_num_vars_per_chunk)
         for vars_chunk in vars_chunks:
             yield _parse_vcf_vars_chunk(vars_chunk, samples)
         fhand.close()
@@ -289,8 +292,12 @@ class _FromVCFChunkIterFactory:
         return self.metadata
 
 
-def vars_from_vcf(vcf_path: Path) -> Variants:
-    chunk_factory = _FromVCFChunkIterFactory(vcf_path)
+def vars_from_vcf(
+    vcf_path: Path, desired_num_vars_per_chunk: int = config.DEF_NUM_VARS_PER_CHUNK
+) -> Variants:
+    chunk_factory = _FromVCFChunkIterFactory(
+        vcf_path, desired_num_vars_per_chunk=desired_num_vars_per_chunk
+    )
     vars = Variants(chunk_factory)
 
     return vars
