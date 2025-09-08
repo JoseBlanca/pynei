@@ -1,3 +1,5 @@
+import itertools
+
 import numpy
 import pandas
 import pytest
@@ -125,3 +127,17 @@ def test_chunk_size():
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
     assert [chunk.num_vars for chunk in chunks] == [10, 5]
+
+
+def test_vars_from_chunk_iterator():
+    num_vars = 100
+    num_samples = 3
+    ploidy = 2
+    gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    gt_array = numpy.ma.array(gt_array)
+    variants = Variants.from_gt_array(gt_array)
+    variants.desired_num_vars_per_chunk = 10
+    chunks = itertools.islice(variants.iter_vars_chunks(), 2)
+    variants2 = Variants.from_chunk_iter(chunks)
+    assert variants2.ploidy == 2
+    assert sum([chunk.num_vars for chunk in variants2.iter_vars_chunks()]) == 20
