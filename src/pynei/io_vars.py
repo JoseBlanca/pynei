@@ -121,3 +121,10 @@ class VariantsDir:
                 chunk_kwargs["gts"] = gts
 
             yield VariantsChunk(**chunk_kwargs)
+
+
+def load_vars(vars_dir: Path, desired_num_vars_per_chunk=config.DEF_NUM_VARS_PER_CHUNK):
+    return Variants(
+        vars_chunk_iter_factory=VariantsDir(vars_dir),
+        desired_num_vars_per_chunk=desired_num_vars_per_chunk,
+    )

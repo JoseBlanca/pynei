@@ -12,4 +12,4 @@ from pynei.var_filters import (
     gather_filtering_stats,
 )
 from pynei.ld import get_ld_and_dist_for_pops
-from pynei.io_vars import write_vars
+from pynei.io_vars import write_vars, load_vars
