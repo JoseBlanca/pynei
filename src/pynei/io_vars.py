@@ -104,6 +104,9 @@ class VariantsDir:
         self.ploidy = int(self.metadata["ploidy"])
         self._chunks_metadata = self.metadata["var_chunks_metadata"]
 
+    def _get_metadata(self):
+        return self.metadata
+
     def iter_vars_chunks(self):
         for chunk_metadata in self._chunks_metadata:
             chunk_kwargs = {}
