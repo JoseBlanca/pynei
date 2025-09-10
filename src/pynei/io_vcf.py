@@ -298,6 +298,8 @@ def vars_from_vcf(
     chunk_factory = _FromVCFChunkIterFactory(
         vcf_path, desired_num_vars_per_chunk=desired_num_vars_per_chunk
     )
-    vars = Variants(chunk_factory)
+    vars = Variants(
+        chunk_factory, desired_num_vars_per_chunk=desired_num_vars_per_chunk
+    )
 
     return vars
