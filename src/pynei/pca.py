@@ -45,8 +45,7 @@ def create_012_gt_matrix(variants, transform_to_biallelic=False):
 
 
 def _create_pc_names(num_prin_comps):
-    n_digits = num_prin_comps // 10
-    fstring = "{:0" + str(n_digits) + "d}"
+    fstring = "{:0" + str(len(str(num_prin_comps))) + "d}"
     prin_comps_names = ["PC" + fstring.format(idx) for idx in range(num_prin_comps)]
     return prin_comps_names
 
