@@ -334,8 +334,15 @@ class Variants:
         )
 
     @classmethod
-    def from_chunk_iter(cls, chunks: Iterator[VariantsChunk]):
-        return cls(vars_chunk_iter_factory=FromChunkIterIterFactory(chunks))
+    def from_chunk_iter(
+        cls,
+        chunks: Iterator[VariantsChunk],
+        desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
+    ):
+        return cls(
+            vars_chunk_iter_factory=FromChunkIterIterFactory(chunks),
+            desired_num_vars_per_chunk=desired_num_vars_per_chunk,
+        )
 
 
 def _concat_genotypes(genotypes: Sequence[Genotypes]):
