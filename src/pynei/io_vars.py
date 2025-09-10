@@ -89,6 +89,8 @@ def write_vars(
         metadata["var_chunks_metadata"].append(chunk_metadata)
 
     with open(_create_metadata_path(output_dir), "wt") as fhand:
+        if "samples" in metadata:
+            metadata["samples"] = list(metadata["samples"])
         json.dump(metadata, fhand)
         fhand.flush()
 
