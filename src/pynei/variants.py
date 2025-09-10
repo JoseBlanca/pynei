@@ -351,7 +351,7 @@ def _concat_genotypes(genotypes: Sequence[Genotypes]):
         if not numpy.all(gts.samples == genotypes[0].samples):
             raise ValueError("All genotypes must have the same samples")
         gtss.append(gts.gt_ma_array)
-    gts = numpy.vstack(gtss)
+    gts = numpy.ma.vstack(gtss)
     return Genotypes(gt_array=gts, samples=genotypes[0].samples)
 
 
