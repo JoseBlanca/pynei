@@ -175,6 +175,7 @@ def _parse_var_line(line, num_samples, ploidy=None):
     for gt_str in fields[9:]:
         gt_str = gt_str.split(b":")[gt_fmt_idx]
         if gt_str == ref_gt_str:
+            sample_idx += ploidy
             continue
         for allele_idx, (is_missing, allele) in enumerate(_parse_gt(gt_str)[1]):
             if is_missing:
@@ -190,7 +191,6 @@ def _parse_var_line(line, num_samples, ploidy=None):
         .reshape(num_samples, ploidy)
         .astype(bool)
     )
-
     return {
         "chrom": _decode_chrom(fields[0]),
         "pos": int(fields[1]),
