@@ -42,10 +42,8 @@ def _calc_final_result_per_sample_stats(accumulated_result):
     samples = accumulated_result["samples"]
     return pandas.DataFrame(
         {
-            "missing_gt_rate": pandas.Series(gt_is_missing),
-            "obs_het_rate": pandas.Series(
-                gt_is_het,
-            ),
+            "missing_gt_rate": gt_is_missing,
+            "obs_het_rate": gt_is_het,
         },
         index=samples,
     )
