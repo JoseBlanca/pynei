@@ -108,6 +108,12 @@ class VariantsDir:
         return self.metadata
 
     def iter_vars_chunks(self):
+        samples = None
+        with open(_create_metadata_path(self.dir), "rt") as fhand:
+            metadata = json.load(fhand)
+            if "samples" in metadata:
+                samples = list(metadata["samples"])
+
         for chunk_metadata in self._chunks_metadata:
             chunk_kwargs = {}
             chunk_dir = self.dir / chunk_metadata["dir"]
@@ -120,7 +126,7 @@ class VariantsDir:
                 gts = numpy.load(gzip.open(path, "rb"))
                 mask = numpy.load(gzip.open(_create_gt_mask_path(chunk_dir), "rb"))
                 gts = numpy.ma.masked_array(gts, mask)
-                gts = Genotypes(numpy.ma.array(gts))
+                gts = Genotypes(numpy.ma.array(gts), samples=samples)
                 chunk_kwargs["gts"] = gts
 
             yield VariantsChunk(**chunk_kwargs)
