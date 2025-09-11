@@ -40,10 +40,15 @@ def _calc_final_result_per_sample_stats(accumulated_result):
     gt_is_missing = accumulated_result["gt_is_missing"] / accumulated_result["num_vars"]
     gt_is_het = accumulated_result["gt_is_het"] / accumulated_result["num_vars"]
     samples = accumulated_result["samples"]
-    return {
-        "missing_gt_rate": pandas.Series(gt_is_missing, index=samples),
-        "obs_het_rate": pandas.Series(gt_is_het, index=samples),
-    }
+    return pandas.DataFrame(
+        {
+            "missing_gt_rate": pandas.Series(gt_is_missing),
+            "obs_het_rate": pandas.Series(
+                gt_is_het,
+            ),
+        },
+        index=samples,
+    )
 
 
 def calc_per_sample_stats(vars: Variants):
