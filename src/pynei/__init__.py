@@ -13,3 +13,4 @@ from pynei.var_filters import (
 )
 from pynei.ld import get_ld_and_dist_for_pops
 from pynei.io_vars import write_vars, load_vars
+from pynei.sample_stats import calc_per_sample_stats
