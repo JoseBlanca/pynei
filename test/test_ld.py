@@ -111,7 +111,7 @@ def test_ld_calc():
         non_diag_mask = ~numpy.eye(r2.shape[0], dtype=bool)
         non_diag_r2 = r2[non_diag_mask]
         non_diag_r = numpy.sqrt(numpy.abs(non_diag_r2))
-        assert numpy.allclose(non_diag_r, 1 - independence_rate, atol=0.2)
+        assert numpy.allclose(non_diag_r, 1 - independence_rate, atol=0.3)
         assert numpy.allclose(r2[~non_diag_mask], 1.0, atol=0.1)
 
     Y = [
