@@ -35,10 +35,11 @@ def write_vars(
     metadata = {
         "var_dir_format_version": "1.0",
         "var_chunks_metadata": [],
-        "samples": vars.samples,
         "num_samples": vars.num_samples,
         "ploidy": vars.ploidy,
     }
+    if vars.samples:
+        metadata["samples"] = vars.samples
 
     for chunk_idx, chunk in enumerate(vars.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
@@ -99,7 +100,8 @@ class VariantsDir:
     def __init__(self, dir):
         self.dir = Path(dir)
         self.metadata = json.load(open(_create_metadata_path(self.dir), "rt"))
-        self.samples = numpy.array(self.metadata["samples"])
+        if "samples" in self.metadata:
+            self.samples = numpy.array(self.metadata["samples"])
         self.num_samples = self.metadata["num_samples"]
         self.ploidy = int(self.metadata["ploidy"])
         self._chunks_metadata = self.metadata["var_chunks_metadata"]
