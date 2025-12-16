@@ -1,6 +1,8 @@
 from typing import Callable, Iterator
-import multiprocessing
 import functools
+
+import threaded_map_reduce
+from pynei.config import MAP_REDUCE_CHUNK_SIZE
 
 
 class _ChunkProcessor:
@@ -34,29 +36,36 @@ class Pipeline:
         self.reduce_funct = reduce_funct
         self.reduce_initializer = reduce_initializer
 
-    def _process_vars(self, vars, num_processes: int = 1):
+    def _process_vars(
+        self, vars, num_processes: int = 1, map_reduce_chunk_size=MAP_REDUCE_CHUNK_SIZE
+    ):
         process_chunk = _ChunkProcessor(self.map_functs)
 
         use_multiprocessing = num_processes > 1
 
         if use_multiprocessing:
-            pool = multiprocessing.Pool(3)
-            map_ = pool.map
+            if self.reduce_funct:
+                result = threaded_map_reduce.map_reduce(
+                    map_fn=process_chunk,
+                    reduce_fn=self.reduce_funct,
+                    iterable=vars.iter_vars_chunks(),
+                    num_computing_threads=num_processes,
+                    chunk_size=map_reduce_chunk_size,
+                )
+            else:
+                result = threaded_map_reduce.map(
+                    map_fn=process_chunk,
+                    items=vars.iter_vars_chunks(),
+                    num_computing_threads=num_processes,
+                    chunk_size=map_reduce_chunk_size,
+                )
         else:
-            map_ = map
-
-        processed_chunks = map_(process_chunk, vars.iter_vars_chunks())
-
-        if self.reduce_funct is not None:
-            reduced_result = functools.reduce(
-                self.reduce_funct, processed_chunks, self.reduce_initializer
-            )
-            result = reduced_result
-        else:
+            processed_chunks = map(process_chunk, vars.iter_vars_chunks())
             result = processed_chunks
-
-        if use_multiprocessing:
-            pool.close()
+            if self.reduce_funct is not None:
+                result = functools.reduce(
+                    self.reduce_funct, processed_chunks, self.reduce_initializer
+                )
 
         if self.after_reduce_funct is not None:
             result = self.after_reduce_funct(result)

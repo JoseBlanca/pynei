@@ -3,13 +3,14 @@ name = "pyNei"
 version = "0.1.0"
 description = "Population genetics with python"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "more-itertools>=10.5.0",
     "numpy>=2.1.0",
     "pandas>=2.2.2",
     "pyarrow>=18.0.0",
     "scipy>=1.14.1",
+    "threaded-map-reduce>=0.1.1",
 ]
 
 [project.optional-dependencies]
@@ -21,8 +22,8 @@ pyarrow = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ruff>=0.6.1",
     "pytest>=8.3.2",
     "pytest-pyodide>=0.58.4",
