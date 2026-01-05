@@ -502,7 +502,7 @@ def _create_kosman_dist_pipeline(
 
 
 def calc_pairwise_kosman_dists(
-    variants, min_num_snps=None, use_approx_embedding_algorithm=False
+    variants, min_num_snps=None, use_approx_embedding_algorithm=False, num_processes=1
 ) -> Distances:
     """It calculates the distance between individuals using the Kosman
     distance.
@@ -513,7 +513,7 @@ def calc_pairwise_kosman_dists(
     return _calc_pairwise_dists(
         variants,
         min_num_snps=min_num_snps,
-        num_processes=1,
+        num_processes=num_processes,
         use_approx_embedding_algorithm=use_approx_embedding_algorithm,
     )
 
