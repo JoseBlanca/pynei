@@ -38,8 +38,16 @@ def write_vars(
         "num_samples": vars.num_samples,
         "ploidy": vars.ploidy,
     }
-    if vars.samples:
-        metadata["samples"] = vars.samples
+
+    samples = vars.samples
+    if (
+        samples is None
+        or (isinstance(samples, (list, tuple)) and not samples)
+        or not vars.samples.shape[0]
+    ):
+        samples = None
+    if samples is not None:
+        metadata["samples"] = list(samples)
 
     for chunk_idx, chunk in enumerate(vars.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
