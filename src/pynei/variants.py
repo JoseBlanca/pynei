@@ -253,7 +253,7 @@ class FromVarsFactory:
         self._variants = variants
         self._desired_num_chunks = desired_num_chunks
 
-    def __get_metadata(self):
+    def _get_metadata(self):
         return self._variants._get_metadata()
 
     def iter_vars_chunks(self):
