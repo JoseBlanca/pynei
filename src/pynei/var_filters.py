@@ -23,6 +23,7 @@ class _FilterChunkIterFactory:
         self.num_vars_processed = 0
         self.num_vars_kept = 0
         self._metadata = None
+        self._first_processed_chunk = None
 
     def _get_metadata(self):
         if self._metadata is not None:
@@ -32,8 +33,7 @@ class _FilterChunkIterFactory:
             first_chunk = next(self.iter_vars_chunks())
         except StopIteration:
             raise RuntimeError("No variations to get the data from")
-
-        self._chunks = itertools.chain([first_chunk], self._chunks)
+        self._first_processed_chunk = first_chunk
 
         self._metadata = {
             "samples": first_chunk.gts.samples,
@@ -43,6 +43,9 @@ class _FilterChunkIterFactory:
         return self._metadata.copy()
 
     def iter_vars_chunks(self):
+        if self._first_processed_chunk is not None:
+            yield self._first_processed_chunk
+
         for chunk in self._chunks:
             if self._metadata is None:
                 self._metadata = {
