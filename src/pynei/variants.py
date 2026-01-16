@@ -248,29 +248,21 @@ class FromGtChunkIterFactory:
         return iter(self._chunks)
 
 
-class FromChunkIterIterFactory:
-    def __init__(self, chunks: Iterator[VariantsChunk]):
-        self.chunks = iter(chunks)
-        self._metadata = None
+class FromVarsFactory:
+    def __init__(self, variants, desired_num_chunks):
+        self._variants = variants
+        self._desired_num_chunks = desired_num_chunks
 
-    def _get_metadata(self):
-        if self._metadata is not None:
-            return self._metadata
+    def __get_metadata(self):
+        return self._variants._get_metadata()
 
-        try:
-            first_chunk = next(self.chunks)
-        except StopIteration:
-            raise ValueError("There are no chunks to get the metadata")
-        self.chunks = itertools.chain([first_chunk], self.chunks)
+    def iter_vars_chunks(self):
+        chunks = self._variants.iter_vars_chunks()
 
-        return {
-            "samples": first_chunk.gts.samples,
-            "num_samples": first_chunk.num_samples,
-            "ploidy": first_chunk.gts.ploidy,
-        }
+        if self._desired_num_chunks:
+            chunks = itertools.islice(chunks, self._desired_num_chunks)
 
-    def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
-        return iter(self.chunks)
+        return chunks
 
 
 class Variants:
@@ -334,13 +326,14 @@ class Variants:
         )
 
     @classmethod
-    def from_chunk_iter(
+    def from_vars(
         cls,
-        chunks: Iterator[VariantsChunk],
+        variants,
         desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
+        desired_num_chunks=None,
     ):
         return cls(
-            vars_chunk_iter_factory=FromChunkIterIterFactory(chunks),
+            vars_chunk_iter_factory=FromVarsFactory(variants, desired_num_chunks),
             desired_num_vars_per_chunk=desired_num_vars_per_chunk,
         )
 
