@@ -252,20 +252,13 @@ def _reduce_kosman_dists(acummulated_dists_and_snps, new_dists_and_snps):
     return abs_distances, n_snps_matrix
 
 
-def _calc_pairwise_dists_exact(
-    variants,
-    dist_pipeline,
-    num_processes=2,
-):
+def _calc_pairwise_dists_exact(variants, dist_pipeline, num_processes=2, debug=False):
     dists = dist_pipeline.map_and_reduce(variants, num_processes=num_processes)
     return dists
 
 
 def _get_dists(
-    variants,
-    dist_pipeline,
-    cached_dists=None,
-    num_processes=2,
+    variants, dist_pipeline, cached_dists=None, num_processes=2, debug=False
 ):
     pop1_samples = dist_pipeline.pop1_samples
     pop2_samples = dist_pipeline.pop2_samples
@@ -279,9 +272,7 @@ def _get_dists(
 
     if samples_to_calc_dists_from.size:
         new_dists = _calc_pairwise_dists_exact(
-            variants,
-            dist_pipeline,
-            num_processes=num_processes,
+            variants, dist_pipeline, num_processes=num_processes, debug=debug
         )
     else:
         new_dists = None
@@ -325,6 +316,7 @@ def _select_seed_samples_for_embedding(
             pop2_samples=all_samples,
             min_num_snps=min_num_snps,
         )
+
         seed_dists, cached_dists = _get_dists(
             variants,
             dist_pipeline,
@@ -336,17 +328,18 @@ def _select_seed_samples_for_embedding(
         most_distant_samples = numpy.unique(
             all_samples[sample_idxs_with_max_dists_to_seeds]
         )
-        # print(most_distant_samples)
         dist_pipeline = _create_kosman_dist_pipeline(
             pop1_samples=most_distant_samples,
             pop2_samples=all_samples,
             min_num_snps=min_num_snps,
         )
+
         dists_to_most_distant_samples, cached_dists = _get_dists(
             variants,
             dist_pipeline,
             num_processes=num_processes,
             cached_dists=cached_dists,
+            debug=True,
         )
         samples_idxs_most_distant_to_most_distant_samples = numpy.argmax(
             dists_to_most_distant_samples.values, axis=1
@@ -354,7 +347,7 @@ def _select_seed_samples_for_embedding(
         samples_most_distant_to_most_distant_samples = numpy.unique(
             all_samples[samples_idxs_most_distant_to_most_distant_samples]
         )
-        # print(samples_most_distant_to_most_distant_samples)
+
         old_num_seeds = seed_samples.size
         seed_samples = numpy.union1d(
             seed_samples, samples_most_distant_to_most_distant_samples
@@ -470,6 +463,10 @@ def _calc_pairwise_dists(
 
 
 def _kosman_calc_after_reduce(reduced_result, min_num_snps=None):
+    if reduced_result is None:
+        raise RuntimeError(
+            "There was a problem calculating the distances, maybe there were no SNPs"
+        )
     abs_distances, n_snps_matrix = reduced_result
 
     if min_num_snps is not None:
