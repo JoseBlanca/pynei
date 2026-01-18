@@ -29,11 +29,14 @@ class _FilterChunkIterFactory:
         if self._metadata is not None:
             return self._metadata.copy()
 
-        try:
-            first_chunk = next(self.iter_vars_chunks())
-        except StopIteration:
-            raise RuntimeError("No variations to get the data from")
-        self._first_processed_chunk = first_chunk
+        if self._first_processed_chunk is None:
+            try:
+                first_chunk = next(self.iter_vars_chunks())
+            except StopIteration:
+                raise RuntimeError("No variations to get the data from")
+            self._first_processed_chunk = first_chunk
+        else:
+            first_chunk = self._first_processed_chunk
 
         self._metadata = {
             "samples": first_chunk.gts.samples,
