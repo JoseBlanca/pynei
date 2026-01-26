@@ -237,8 +237,12 @@ class _FilterLDChunkIterFactory(_FilterChunkIterFactory):
         self.num_vars_processed = 0
         self.num_vars_kept = 0
         self._metadata = None
+        self._first_processed_chunk = None
 
     def iter_vars_chunks(self):
+        if self._first_processed_chunk is not None:
+            yield self._first_processed_chunk
+
         ref_gt = None
         for chunk in self._chunks:
             if self._metadata is None:

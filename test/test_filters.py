@@ -207,3 +207,25 @@ def test_filter_ld():
 
         stats = gather_filtering_stats(vars)
         assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
+
+
+def test_get_metadata():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 1], [1, 0], [2, 2], [1, 0], [0, 0]],
+            [[1, 1], [2, 2], [0, 1], [0, 0], [1, 2]],
+        ]
+    )
+    samples = [0, 1, 2, 3, 4]
+    orig_vars = Variants.from_gt_array(gts, samples=samples)
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    vars = filter_by_missing_data(vars, max_allowed_missing_rate=0.99)
+    assert list(vars.samples) == samples
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
+
+    orig_vars = Variants.from_gt_array(gts, samples=samples)
+    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(vars.iter_vars_chunks())
+    assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
