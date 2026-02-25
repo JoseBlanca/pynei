@@ -12,8 +12,6 @@ from pynei.gt_counts import (
 )
 from .ld_calc import _calc_rogers_huff_r2
 
-NUM_VARS_PER_CHUNK_IN_LD_FILTERING = 100
-
 
 class _FilterChunkIterFactory:
     def __init__(self, in_vars, filter_funct):
@@ -230,9 +228,7 @@ class _FilterLDChunkIterFactory(_FilterChunkIterFactory):
 
     def __init__(self, in_vars, filter_funct):
         self.in_vars = in_vars
-        self._chunks = in_vars.iter_vars_chunks(
-            desired_num_vars_per_chunk=NUM_VARS_PER_CHUNK_IN_LD_FILTERING
-        )
+        self._chunks = in_vars.iter_vars_chunks()
         self.filter_funct = filter_funct
         self.num_vars_processed = 0
         self.num_vars_kept = 0
