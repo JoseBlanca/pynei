@@ -212,7 +212,7 @@ class VariantsChunk:
         else:
             vars_info = None
         if self.alleles is not None:
-            alleles = self.alleles.loc[index, ...]
+            alleles = self.alleles.iloc[index, ...]
         else:
             alleles = None
         return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
