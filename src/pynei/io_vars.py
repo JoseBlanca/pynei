@@ -9,8 +9,15 @@ from pynei.variants import Variants, Genotypes, VariantsChunk
 import pynei.config as config
 
 
+VAR_DIR_FORMAT_VERSION = "1.1"
+
+
 def _create_vars_info_path(chunk_dir):
     return chunk_dir / "vars_info.parquet"
+
+
+def _create_alleles_path(chunk_dir):
+    return chunk_dir / "alleles.parquet"
 
 
 def _create_gt_path(chunk_dir):
@@ -31,23 +38,30 @@ def write_vars(
     numpy_array_compression_level=config.DEF_NUMPY_GZIP_COMPRESSION_LEVEL,
 ):
     output_dir = Path(output_dir)
+    if output_dir.exists():
+        if any(output_dir.iterdir()):
+            raise ValueError(
+                f"The dir to write the vars into should be empty, but it is not: {output_dir}"
+            )
+    else:
+        output_dir.mkdir(parents=True)
 
     metadata = {
-        "var_dir_format_version": "1.0",
+        "var_dir_format_version": VAR_DIR_FORMAT_VERSION,
         "var_chunks_metadata": [],
         "num_samples": vars.num_samples,
         "ploidy": vars.ploidy,
     }
 
     samples = vars.samples
-    if (
-        samples is None
-        or (isinstance(samples, (list, tuple)) and not samples)
-        or not vars.samples.shape[0]
-    ):
+    if samples is not None and not len(samples):
         samples = None
     if samples is not None:
-        metadata["samples"] = list(samples)
+        # numpy scalars, like the np.str_ that a numpy array of samples gives,
+        # are not json serializable, item() turns them into python ones
+        metadata["samples"] = [
+            sample.item() if hasattr(sample, "item") else sample for sample in samples
+        ]
 
     for chunk_idx, chunk in enumerate(vars.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
@@ -56,9 +70,7 @@ def write_vars(
 
         vars_info = chunk.vars_info
         if vars_info is not None:
-            fpath = str(_create_vars_info_path(chunk_dir))
-            fhand = open(fpath, "wb")
-            chunk.vars_info.to_parquet(fhand)
+            vars_info.to_parquet(_create_vars_info_path(chunk_dir))
             if (
                 config.VAR_TABLE_CHROM_COL in vars_info.columns
                 and config.VAR_TABLE_POS_COL in vars_info.columns
@@ -75,7 +87,10 @@ def write_vars(
                 chunk_metadata["end_pos"] = int(
                     vars_info[config.VAR_TABLE_POS_COL].iloc[-1]
                 )
-            fhand.flush()
+
+        alleles = chunk.alleles
+        if alleles is not None:
+            alleles.to_parquet(_create_alleles_path(chunk_dir))
 
         array = chunk.gts.gt_ma_array
         fpath = str(_create_gt_path(chunk_dir))
@@ -98,10 +113,7 @@ def write_vars(
         metadata["var_chunks_metadata"].append(chunk_metadata)
 
     with open(_create_metadata_path(output_dir), "wt") as fhand:
-        if "samples" in metadata:
-            metadata["samples"] = list(metadata["samples"])
         json.dump(metadata, fhand)
-        fhand.flush()
 
 
 class VariantsDir:
@@ -130,6 +142,10 @@ class VariantsDir:
             path = _create_vars_info_path(chunk_dir)
             if path.exists():
                 chunk_kwargs["vars_info"] = pandas.read_parquet(path)
+
+            path = _create_alleles_path(chunk_dir)
+            if path.exists():
+                chunk_kwargs["alleles"] = pandas.read_parquet(path)
 
             path = _create_gt_path(chunk_dir)
             if path.exists():

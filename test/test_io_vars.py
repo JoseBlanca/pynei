@@ -1,11 +1,18 @@
 import tempfile
+from pathlib import Path
 
+import pytest
 import pandas
 import numpy
 
 from pynei.variants import VariantsChunk, Variants, Genotypes
 import pynei.config as config
-from pynei.io_vars import write_vars, VariantsDir
+from pynei.io_vars import write_vars, load_vars, VariantsDir
+from pynei.io_vcf import vars_from_vcf
+from .test_vcf import VCF_45
+
+# the vars dir uses parquet for the vars info and the alleles
+pytest.importorskip("pyarrow")
 
 
 class _ChunkFactory:
@@ -53,3 +60,60 @@ def test_vars_io():
         assert chunk.gts.num_samples == 10
         numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
         assert chunk.vars_info.equals(orig_chunk.vars_info)
+
+
+def test_vars_io_keeps_the_alleles():
+    chroms = ["chrom1", "chrom1", "chrom2"]
+    poss = [1, 2, 3]
+    chunk_factory = _ChunkFactory(chroms, poss, num_samples=4, ploidy=2)
+    alleles = pandas.DataFrame(
+        [["A", "T", None], ["C", None, None], ["G", "A", "TT"]],
+        dtype=config.PANDAS_STR_DTYPE(),
+    )
+    orig_chunk = VariantsChunk(
+        gts=chunk_factory.chunk.gts,
+        vars_info=chunk_factory.chunk.vars_info,
+        alleles=alleles,
+    )
+    chunk_factory.chunk = orig_chunk
+    vars = Variants(chunk_factory)
+
+    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
+        write_vars(vars, tempdir)
+        chunk = next(load_vars(tempdir).iter_vars_chunks())
+        assert chunk.alleles is not None
+        assert chunk.alleles.equals(orig_chunk.alleles)
+
+
+def test_vcf_to_vars_dir_round_trip():
+    with tempfile.TemporaryDirectory() as tempdir:
+        tempdir = Path(tempdir)
+        vcf_path = tempdir / "vars.vcf"
+        vcf_path.write_bytes(VCF_45)
+        orig_chunk = next(vars_from_vcf(vcf_path).iter_vars_chunks())
+        assert orig_chunk.alleles is not None
+
+        vars_dir = tempdir / "vars_dir"
+        write_vars(vars_from_vcf(vcf_path), vars_dir)
+        vars = load_vars(vars_dir)
+        chunk = next(vars.iter_vars_chunks())
+
+        assert list(vars.samples) == list(orig_chunk.gts.samples)
+        assert chunk.alleles.equals(orig_chunk.alleles)
+        assert chunk.vars_info.equals(orig_chunk.vars_info)
+        assert numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
+        assert numpy.array_equal(chunk.gts.missing_mask, orig_chunk.gts.missing_mask)
+
+
+def test_write_vars_creates_the_dir_and_refuses_a_used_one():
+    chunk_factory = _ChunkFactory(["chrom1"], [1], num_samples=4, ploidy=2)
+    vars = Variants(chunk_factory)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        vars_dir = Path(tempdir) / "not_created_yet" / "vars"
+        write_vars(vars, vars_dir)
+        assert load_vars(vars_dir).num_samples == 4
+
+        # writing again into the same dir would mix the two sets of chunks
+        with pytest.raises(ValueError):
+            write_vars(vars, vars_dir)
