@@ -118,10 +118,24 @@ class Genotypes:
         return self.filter_samples_with_idxs(index)
 
     def to_012(self) -> numpy.ndarray:
-        res = _count_alleles_per_var(VariantsChunk(self), calc_freqs=False)
-        allele_counts = res["counts"][DEF_POP_NAME]["allele_counts"].values
+        """It returns the number of non-major alleles of each genotype.
 
-        major_alleles = numpy.argmax(allele_counts, axis=1)
+        The result is a vars x samples array. Any genotype with a missing
+        allele is set to MISSING_ALLELE. Every allele that is not the major one
+        counts the same, so variants with more than two alleles are, in fact,
+        transformed into biallelic ones.
+        """
+        res = _count_alleles_per_var(VariantsChunk(self), calc_freqs=False)
+        allele_counts = res["counts"][DEF_POP_NAME]["allele_counts"]
+
+        if not allele_counts.shape[1]:
+            # there are only missing genotypes
+            return numpy.full(self.shape[:2], MISSING_ALLELE)
+
+        # argmax gives the column of the major allele, not the allele itself,
+        # and they are different when the alleles found are not 0, 1, 2...
+        alleles = allele_counts.columns.to_numpy()
+        major_alleles = alleles[numpy.argmax(allele_counts.values, axis=1)]
         gts012 = numpy.sum(self.gt_values != major_alleles[:, None, None], axis=2)
 
         gts012[numpy.any(self.missing_mask, axis=2)] = MISSING_ALLELE

@@ -103,3 +103,36 @@ def test_pcoa_with_vars():
 
     do_pcoa_with_vars(vars, use_approx_embedding_algorithm=True)
     do_pcoa_with_vars(vars, use_approx_embedding_algorithm=False)
+
+
+def test_mat012_keeps_the_missing_gts():
+    gt_array = numpy.array([[[0, 0], [0, 0], [0, 0], [-1, -1], [1, 1], [0, -1]]])
+    vars = Variants.from_gt_array(gt_array)
+    mat012 = create_012_gt_matrix(vars)
+    assert numpy.all(mat012 == [[0, 0, 0, MISSING_ALLELE, 2, MISSING_ALLELE]])
+
+
+def test_pca_vars_with_missing_gts():
+    # Two pops fixed for different alleles. One sample of the first pop has
+    # half of its genotypes missing, and it should still be placed on the side
+    # of its pop. Missing gts used to be counted as homozygous for the
+    # non-major allele, and that moved the sample towards the other pop.
+    num_vars = 40
+    num_samples_pop1 = 12
+    num_samples_pop2 = 8
+    num_samples = num_samples_pop1 + num_samples_pop2
+    gt_array = numpy.zeros((num_vars, num_samples, 2), dtype=int)
+    gt_array[:, num_samples_pop1:, :] = 1
+    gt_array[: num_vars // 2, 0, :] = MISSING_ALLELE
+    samples = [f"pop1_{idx}" for idx in range(num_samples_pop1)]
+    samples += [f"pop2_{idx}" for idx in range(num_samples_pop2)]
+    vars = Variants.from_gt_array(gt_array, samples=samples)
+
+    projections = do_pca_with_vars(vars)["projections"]
+    pc1 = projections.iloc[:, 0]
+    sample_with_missing = pc1.iloc[0]
+    pop1 = pc1.iloc[1:num_samples_pop1].mean()
+    pop2 = pc1.iloc[num_samples_pop1:].mean()
+    assert numpy.sign(sample_with_missing) == numpy.sign(pop1)
+    assert numpy.sign(sample_with_missing) != numpy.sign(pop2)
+    assert abs(sample_with_missing - pop1) < abs(sample_with_missing - pop2)

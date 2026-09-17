@@ -127,3 +127,29 @@ def test_chunk_size():
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
     assert [chunk.num_vars for chunk in chunks] == [10, 5]
+
+
+def test_gts_to_012_alleles_not_starting_at_zero():
+    # the major allele is 2, and it is neither the allele 0 nor the first one
+    gt_array = numpy.array([[[2, 2], [2, 2], [2, 1], [1, 1], [2, -1]]])
+    gts = Genotypes(gt_array)
+    assert numpy.all(gts.to_012() == [[0, 0, 1, 2, -1]])
+
+
+def test_gts_to_012_only_missing():
+    gt_array = numpy.full((2, 3, 2), -1)
+    gts = Genotypes(gt_array)
+    assert numpy.all(gts.to_012() == numpy.full((2, 3), -1))
+
+
+def test_gts_to_012_with_the_vcf_missing_encoding():
+    # the VCF parser leaves a 0 in the gt values of the missing alleles and
+    # marks them only in the mask, so to_012 has to rely on the mask
+    gt_array = numpy.array([[[0, 0], [1, 1], [1, 1], [2, 2], [1, 1]]])
+    mask = numpy.zeros_like(gt_array, dtype=bool)
+    mask[0, 0, :] = True
+    gts = Genotypes(
+        numpy.ma.array(gt_array, mask=mask), samples=list("abcde"), skip_mask_check=True
+    )
+    # the major allele is 1, sample a is missing and sample d is 2/2
+    assert numpy.all(gts.to_012() == [[-1, 0, 0, 2, 0]])
