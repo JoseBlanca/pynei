@@ -36,7 +36,10 @@ class Pipeline:
         self.reduce_initializer = reduce_initializer
 
     def _process_vars(
-        self, vars, num_processes: int = 1, map_reduce_chunk_size=MAP_REDUCE_CHUNK_SIZE
+        self,
+        variants,
+        num_processes: int = 1,
+        map_reduce_chunk_size=MAP_REDUCE_CHUNK_SIZE,
     ):
         process_chunk = _ChunkProcessor(self.map_functs)
 
@@ -49,19 +52,19 @@ class Pipeline:
                 result = threaded_map_reduce.map_reduce(
                     map_fn=process_chunk,
                     reduce_fn=self.reduce_funct,
-                    iterable=vars.iter_vars_chunks(),
+                    iterable=variants.iter_vars_chunks(),
                     num_computing_threads=num_processes,
                     chunk_size=map_reduce_chunk_size,
                 )
             else:
                 result = threaded_map_reduce.map(
                     map_fn=process_chunk,
-                    items=vars.iter_vars_chunks(),
+                    items=variants.iter_vars_chunks(),
                     num_computing_threads=num_processes,
                     chunk_size=map_reduce_chunk_size,
                 )
         else:
-            processed_chunks = map(process_chunk, vars.iter_vars_chunks())
+            processed_chunks = map(process_chunk, variants.iter_vars_chunks())
             result = processed_chunks
             if self.reduce_funct is not None:
                 result = functools.reduce(
@@ -73,14 +76,14 @@ class Pipeline:
 
         return result
 
-    def map_chunks(self, vars, num_processes: int = 1) -> Iterator:
+    def map_chunks(self, variants, num_processes: int = 1) -> Iterator:
         if self.reduce_funct is not None or self.reduce_initializer is not None:
             raise ValueError(
                 "For mapping reduce_funct and reduce_initializer must be None"
             )
-        return self._process_vars(vars, num_processes)
+        return self._process_vars(variants, num_processes)
 
-    def map_and_reduce(self, vars, num_processes: int = 1):
+    def map_and_reduce(self, variants, num_processes: int = 1):
         if self.reduce_funct is None:
             raise ValueError("For mapping and reducing reduce_funct must be set")
-        return self._process_vars(vars, num_processes)
+        return self._process_vars(variants, num_processes)

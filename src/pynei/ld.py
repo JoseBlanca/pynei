@@ -1,7 +1,6 @@
 import itertools
 from functools import partial
 from collections import namedtuple
-from typing import Sequence
 from enum import Enum
 
 import numpy
@@ -10,6 +9,7 @@ import more_itertools
 
 from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL, DEF_POP_NAME
 from pynei.var_filters import filter_by_maf, filter_samples
+from pynei.utils_pop import Pops, _calc_pops_idxs
 from .ld_calc import _calc_rogers_huff_r2
 
 
@@ -44,11 +44,11 @@ def _chunks_are_close(chunk_pair, max_dist):
 
 
 def calc_rogers_huff_r2_matrix(
-    vars, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
+    variants, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
     # This function is faster than calc_pairwise_rogers_huff_r2,
     # but it uses much more memory
-    chunks = list(vars.iter_vars_chunks())
+    chunks = list(variants.iter_vars_chunks())
     tot_num_vars = sum(chunk.num_vars for chunk in chunks)
     r2 = numpy.full((tot_num_vars, tot_num_vars), numpy.nan)
     res = {"r2": r2}
@@ -135,11 +135,11 @@ LDResult = namedtuple(
 
 
 def calc_pairwise_rogers_huff_r2(
-    vars, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
+    variants, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
     # This is the slower alternative, calc_rogers_huff_r2_matrix is much faster,
-    # but if you have many vars and the calculation does not fit in memory, use this one
-    chunks = vars.iter_vars_chunks()
+    # but if you have many variants and the calculation does not fit in memory, use this one
+    chunks = variants.iter_vars_chunks()
     chunk_pairs = itertools.combinations_with_replacement(chunks, 2)
 
     if max_dist is not None:
@@ -206,8 +206,8 @@ class LDCalcMethod(Enum):
 
 
 def get_ld_and_dist_for_pops(
-    vars,
-    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    variants,
+    pops: Pops | None = None,
     max_dist: int | None = None,
     min_dist: int | None = 1,
     max_allowed_maf=0.95,
@@ -215,11 +215,18 @@ def get_ld_and_dist_for_pops(
     max_num_measures_to_keep=10000,
 ):
     if pops is None:
-        pops = {DEF_POP_NAME: slice(None, None)}
+        # one pop with every sample, there is nothing to filter
+        pops = {DEF_POP_NAME: None}
+    else:
+        # it is only called to check that the pops are right, the idxs are not
+        # used here, filter_samples works with the sample names
+        _calc_pops_idxs(pops, variants.samples)
 
     ld_per_pop = {}
-    for pop_name, samples in pops.items():
-        pop_vars = filter_samples(vars, samples)
+    for pop_name, pop_samples in pops.items():
+        pop_vars = variants
+        if pop_samples is not None:
+            pop_vars = filter_samples(pop_vars, pop_samples)
         pop_vars = filter_by_maf(pop_vars, max_allowed_maf=max_allowed_maf)
         if method == LDCalcMethod.GENERATOR:
             lds_and_dists = (

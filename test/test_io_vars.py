@@ -11,7 +11,7 @@ from pynei.io_vars import write_vars, load_vars, VariantsDir
 from pynei.io_vcf import vars_from_vcf
 from .test_vcf import VCF_45
 
-# the vars dir uses parquet for the vars info and the alleles
+# the variants dir uses parquet for the variants info and the alleles
 pytest.importorskip("pyarrow")
 
 
@@ -49,14 +49,14 @@ def test_vars_io():
     num_samples = 10
     chunk_factory = _ChunkFactory(chroms, poss, num_samples=num_samples, ploidy=2)
     orig_chunk = chunk_factory.chunk
-    vars = Variants(chunk_factory)
+    variants = Variants(chunk_factory)
 
-    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
-        write_vars(vars, tempdir)
+    with tempfile.TemporaryDirectory(suffix=".variants") as tempdir:
+        write_vars(variants, tempdir)
         vars_dir = VariantsDir(tempdir)
         assert vars_dir.num_samples == 10
-        vars = Variants(vars_dir)
-        chunk = next(vars.iter_vars_chunks())
+        variants = Variants(vars_dir)
+        chunk = next(variants.iter_vars_chunks())
         assert chunk.gts.num_samples == 10
         numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
         assert chunk.vars_info.equals(orig_chunk.vars_info)
@@ -76,10 +76,10 @@ def test_vars_io_keeps_the_alleles():
         alleles=alleles,
     )
     chunk_factory.chunk = orig_chunk
-    vars = Variants(chunk_factory)
+    variants = Variants(chunk_factory)
 
-    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
-        write_vars(vars, tempdir)
+    with tempfile.TemporaryDirectory(suffix=".variants") as tempdir:
+        write_vars(variants, tempdir)
         chunk = next(load_vars(tempdir).iter_vars_chunks())
         assert chunk.alleles is not None
         assert chunk.alleles.equals(orig_chunk.alleles)
@@ -88,17 +88,17 @@ def test_vars_io_keeps_the_alleles():
 def test_vcf_to_vars_dir_round_trip():
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
-        vcf_path = tempdir / "vars.vcf"
+        vcf_path = tempdir / "variants.vcf"
         vcf_path.write_bytes(VCF_45)
         orig_chunk = next(vars_from_vcf(vcf_path).iter_vars_chunks())
         assert orig_chunk.alleles is not None
 
         vars_dir = tempdir / "vars_dir"
         write_vars(vars_from_vcf(vcf_path), vars_dir)
-        vars = load_vars(vars_dir)
-        chunk = next(vars.iter_vars_chunks())
+        variants = load_vars(vars_dir)
+        chunk = next(variants.iter_vars_chunks())
 
-        assert list(vars.samples) == list(orig_chunk.gts.samples)
+        assert list(variants.samples) == list(orig_chunk.gts.samples)
         assert chunk.alleles.equals(orig_chunk.alleles)
         assert chunk.vars_info.equals(orig_chunk.vars_info)
         assert numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
@@ -107,16 +107,16 @@ def test_vcf_to_vars_dir_round_trip():
 
 def test_write_vars_creates_the_dir_and_refuses_a_used_one():
     chunk_factory = _ChunkFactory(["chrom1"], [1], num_samples=4, ploidy=2)
-    vars = Variants(chunk_factory)
+    variants = Variants(chunk_factory)
 
     with tempfile.TemporaryDirectory() as tempdir:
-        vars_dir = Path(tempdir) / "not_created_yet" / "vars"
-        write_vars(vars, vars_dir)
+        vars_dir = Path(tempdir) / "not_created_yet" / "variants"
+        write_vars(variants, vars_dir)
         assert load_vars(vars_dir).num_samples == 4
 
         # writing again into the same dir would mix the two sets of chunks
         with pytest.raises(ValueError):
-            write_vars(vars, vars_dir)
+            write_vars(variants, vars_dir)
 
 
 def test_loaded_samples_are_a_tuple_and_the_metadata_is_not_aliased():
@@ -128,10 +128,10 @@ def test_loaded_samples_are_a_tuple_and_the_metadata_is_not_aliased():
         vars_info=chunk_factory.chunk.vars_info,
     )
     chunk_factory.num_samples = 4
-    vars = Variants(chunk_factory)
+    variants = Variants(chunk_factory)
 
-    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
-        write_vars(vars, tempdir)
+    with tempfile.TemporaryDirectory(suffix=".variants") as tempdir:
+        write_vars(variants, tempdir)
         vars_dir = VariantsDir(tempdir)
 
         loaded = load_vars(tempdir)
@@ -146,7 +146,9 @@ def test_loaded_samples_are_a_tuple_and_the_metadata_is_not_aliased():
 
 def test_samples_with_a_numpy_array_can_be_written():
     gt_array = numpy.random.randint(0, 2, (3, 4, 2))
-    vars = Variants.from_gt_array(gt_array, samples=numpy.array(["a", "b", "c", "d"]))
-    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
-        write_vars(vars, tempdir)
+    variants = Variants.from_gt_array(
+        gt_array, samples=numpy.array(["a", "b", "c", "d"])
+    )
+    with tempfile.TemporaryDirectory(suffix=".variants") as tempdir:
+        write_vars(variants, tempdir)
         assert load_vars(tempdir).samples == ("a", "b", "c", "d")

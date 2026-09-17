@@ -211,8 +211,8 @@ def _read_vars(fhand, metadata):
     parse_var_line = functools.partial(
         _parse_var_line, num_samples=num_samples, ploidy=metadata["ploidy"]
     )
-    vars = map(parse_var_line, fhand)
-    return vars
+    variants = map(parse_var_line, fhand)
+    return variants
 
 
 def parse_vcf(vcf_path: Path):
@@ -221,9 +221,9 @@ def parse_vcf(vcf_path: Path):
     metadata = _parse_metadata(fhand)
 
     fhand = _open_vcf(fpath)
-    vars = _read_vars(fhand, metadata)
+    variants = _read_vars(fhand, metadata)
 
-    return {"metadata": metadata, "vars": vars, "fhand": fhand}
+    return {"metadata": metadata, "variants": variants, "fhand": fhand}
 
 
 def _parse_vcf_vars_chunk(vars_chunk, samples):
@@ -283,7 +283,9 @@ class _FromVCFChunkIterFactory:
         fhand = res["fhand"]
         samples = self.metadata["samples"]
 
-        vars_chunks = itertools.batched(res["vars"], self.desired_num_vars_per_chunk)
+        vars_chunks = itertools.batched(
+            res["variants"], self.desired_num_vars_per_chunk
+        )
         for vars_chunk in vars_chunks:
             yield _parse_vcf_vars_chunk(vars_chunk, samples)
         fhand.close()
@@ -298,8 +300,8 @@ def vars_from_vcf(
     chunk_factory = _FromVCFChunkIterFactory(
         vcf_path, desired_num_vars_per_chunk=desired_num_vars_per_chunk
     )
-    vars = Variants(
+    variants = Variants(
         chunk_factory, desired_num_vars_per_chunk=desired_num_vars_per_chunk
     )
 
-    return vars
+    return variants

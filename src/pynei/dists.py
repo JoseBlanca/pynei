@@ -9,7 +9,7 @@ import pandas
 
 from pynei.pipeline import Pipeline
 from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT
-from pynei.utils_pop import _calc_pops_idxs
+from pynei.utils_pop import Pops, _calc_pops_idxs
 from pynei.gt_counts import _count_alleles_per_var, _calc_obs_het_per_var
 
 
@@ -719,7 +719,7 @@ def _calc_jost_from_ht_hs(sorted_pop_ids, hs, ht, num_vars):
 
 def calc_jost_dest_pop_dists(
     variants,
-    pops: dict[list[str]],
+    pops: Pops,
     alleles: list[int] | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ) -> Distances:

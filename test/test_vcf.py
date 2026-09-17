@@ -71,8 +71,8 @@ def test_vcf_parser():
         tmp.flush()
         tmp_path = Path(tmp.name)
         res = parse_vcf(tmp_path)
-        vars = list(res["vars"])
-        snp = vars[0]
+        variants = list(res["variants"])
+        snp = variants[0]
 
         assert snp["chrom"] == "20"
         assert snp["pos"] == 14370
@@ -81,7 +81,7 @@ def test_vcf_parser():
         assert numpy.array_equal(snp["gts"], [[0, 0], [3, 4], [5, 6000]])
         assert numpy.all(snp["missing_mask"] == 0)
 
-        snp = vars[1]
+        snp = variants[1]
         assert numpy.array_equal(
             snp["missing_mask"], [[True, False], [False, False], [False, False]]
         )
@@ -93,10 +93,10 @@ def test_vars_from_vcf():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(VCF_45)
         tmp.flush()
-        vars = vars_from_vcf(Path(tmp.name))
-        assert vars.num_samples == 3
-        assert vars.ploidy == 2
-        chunk = list(vars.iter_vars_chunks())[0]
+        variants = vars_from_vcf(Path(tmp.name))
+        assert variants.num_samples == 3
+        assert variants.ploidy == 2
+        chunk = list(variants.iter_vars_chunks())[0]
         assert chunk.num_vars == 6
         assert chunk.vars_info.loc[0, "chrom"] == "20"
         assert chunk.vars_info.loc[0, "pos"] == 14370
@@ -115,6 +115,6 @@ def test_vcf_samples_are_a_tuple():
     with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
         tmp.write(VCF_45)
         tmp.flush()
-        vars = vars_from_vcf(Path(tmp.name))
-        assert vars.samples == ("NA00001", "NA00002", "NA00003")
-        assert next(vars.iter_vars_chunks()).gts.samples == vars.samples
+        variants = vars_from_vcf(Path(tmp.name))
+        assert variants.samples == ("NA00001", "NA00002", "NA00003")
+        assert next(variants.iter_vars_chunks()).gts.samples == variants.samples

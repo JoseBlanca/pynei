@@ -22,7 +22,7 @@ class _FilterChunkIterFactory:
 
     def _get_metadata(self):
         # filtering variations changes neither the samples nor the ploidy, so
-        # the metadata is the one of the vars being filtered
+        # the metadata is the one of the variants being filtered
         return self.in_vars._get_metadata()
 
     def _reset_filtering_stats(self):
@@ -30,7 +30,7 @@ class _FilterChunkIterFactory:
         self.num_vars_kept = 0
 
     def iter_vars_chunks(self):
-        # the iterator over the vars to filter has to be asked for here, and
+        # the iterator over the variants to filter has to be asked for here, and
         # not in __init__, because otherwise all the calls to this method would
         # share, and exhaust, one single iterator
         self._reset_filtering_stats()
@@ -46,10 +46,10 @@ class _MissingFilterIterFactory(_FilterChunkIterFactory):
     kind = "missing_data"
 
 
-def gather_filtering_stats(vars: Variants, stats=None):
+def gather_filtering_stats(variants: Variants, stats=None):
     if stats is None:
         stats = {}  # stats by filter kind
-    chunk_factory = vars._vars_chunks_iter_factory
+    chunk_factory = variants._vars_chunks_iter_factory
     if isinstance(chunk_factory, _FilterChunkIterFactory):
         filter_kind = chunk_factory.kind
         if filter_kind not in stats:
@@ -78,15 +78,15 @@ def _filter_chunk_by_missing(chunk, max_missing_rate):
 
 
 def filter_by_missing_data(
-    vars: Variants, max_allowed_missing_rate: float = 0.0
+    variants: Variants, max_allowed_missing_rate: float = 0.0
 ) -> Variants:
     filter_chunk_by_missing = partial(
         _filter_chunk_by_missing, max_missing_rate=max_allowed_missing_rate
     )
-    chunk_factory = _MissingFilterIterFactory(vars, filter_chunk_by_missing)
+    chunk_factory = _MissingFilterIterFactory(variants, filter_chunk_by_missing)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
     )
 
 
@@ -104,12 +104,12 @@ def _filter_chunk_by_maf(chunk, max_allowed_maf):
     return chunk, num_vars_kept
 
 
-def filter_by_maf(vars: Variants, max_allowed_maf) -> Variants:
+def filter_by_maf(variants: Variants, max_allowed_maf) -> Variants:
     filter_chunk = partial(_filter_chunk_by_maf, max_allowed_maf=max_allowed_maf)
-    chunk_factory = _MafFilterIterFactory(vars, filter_chunk)
+    chunk_factory = _MafFilterIterFactory(variants, filter_chunk)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
     )
 
 
@@ -127,14 +127,14 @@ def _filter_chunk_by_obs_het(chunk, max_allowed_obs_het):
     return chunk, num_vars_kept
 
 
-def filter_by_obs_het(vars: Variants, max_allowed_obs_het: float):
+def filter_by_obs_het(variants: Variants, max_allowed_obs_het: float):
     filter_chunk = partial(
         _filter_chunk_by_obs_het, max_allowed_obs_het=max_allowed_obs_het
     )
-    chunk_factory = _ObsHetFilterIterFactory(vars, filter_chunk)
+    chunk_factory = _ObsHetFilterIterFactory(variants, filter_chunk)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
     )
 
 
@@ -153,7 +153,7 @@ class _SampleFilterIterFactory(_FilterChunkIterFactory):
 
     def _get_metadata(self):
         # this filter does change the samples, so it cannot just hand over the
-        # metadata of the vars being filtered
+        # metadata of the variants being filtered
         metadata = dict(self.in_vars._get_metadata())
         samples = _normalize_samples(metadata.get("samples"))
         if samples is not None:
@@ -163,17 +163,19 @@ class _SampleFilterIterFactory(_FilterChunkIterFactory):
         return metadata
 
 
-def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Variants:
-    orig_samples = vars.samples
+def filter_samples(
+    variants, samples: Sequence[str] | Sequence[int] | slice
+) -> Variants:
+    orig_samples = variants.samples
     if isinstance(samples, slice):
         samples = orig_samples[samples]
     sample_idxs = numpy.where(numpy.isin(orig_samples, samples))[0]
 
     filter_samples = partial(_filter_samples, sample_idxs=sample_idxs)
-    chunk_factory = _SampleFilterIterFactory(vars, filter_samples, sample_idxs)
+    chunk_factory = _SampleFilterIterFactory(variants, filter_samples, sample_idxs)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
     )
 
 
@@ -237,7 +239,9 @@ class _FilterLDChunkIterFactory(_FilterChunkIterFactory):
             yield filtered_chunk
 
 
-def filter_by_ld_and_maf(vars, min_allowed_r2=0.1, max_allowed_maf=0.95) -> Variants:
+def filter_by_ld_and_maf(
+    variants, min_allowed_r2=0.1, max_allowed_maf=0.95
+) -> Variants:
     filter_chunk_by_maf = partial(_filter_chunk_by_maf, max_allowed_maf=max_allowed_maf)
     filter_chunk_by_ld = partial(
         _filter_chunk_by_ld,
@@ -245,8 +249,8 @@ def filter_by_ld_and_maf(vars, min_allowed_r2=0.1, max_allowed_maf=0.95) -> Vari
         min_allowed_r2=min_allowed_r2,
     )
 
-    chunk_factory = _FilterLDChunkIterFactory(vars, filter_chunk_by_ld)
+    chunk_factory = _FilterLDChunkIterFactory(variants, filter_chunk_by_ld)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
     )

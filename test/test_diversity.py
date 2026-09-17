@@ -24,8 +24,8 @@ def test_calc_exp_het():
     # snp1  2 1 1   5 0 0  2/4 1/4 1/4  5/5 0   0  0.25 0.0625 0.0625 1    0    0   0.625  0     0.8333 0
     # snp2  4 0 0   2 2 0  4/4 0   0    2/4 2/4 0  1    0      0      0.25 0.25 0   0      0.5   0      0.6666
     # snp3  0 0 0   0 0 0  nan nan nan  nan nan nan nan nan    nan    nan  nan  nan nan    nan   nan    nan
-    vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    chunk = next(variants.iter_vars_chunks())
 
     pops = {1: [0, 1], 2: [2, 3, 4]}
     res = _calc_exp_het_per_var(chunk, pops, min_num_samples=1)
@@ -39,7 +39,7 @@ def test_calc_exp_het():
     assert numpy.allclose(res["exp_het"].values, expected, equal_nan=True)
 
     res = calc_exp_het_stats_per_var(
-        vars, hist_kwargs={"num_bins": 4}, min_num_samples=1
+        variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
     assert numpy.allclose(res["mean"].loc[DEF_POP_NAME], [0.422619])
     assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
@@ -49,8 +49,8 @@ def test_calc_exp_het():
 def test_poly_vars_ratio():
     numpy.random.seed(42)
     gt_array = numpy.random.randint(-1, 3, size=(3, 10, 2))
-    vars = Variants.from_gt_array(gt_array, samples=list(range(0, 10)))
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array, samples=list(range(0, 10)))
+    chunk = next(variants.iter_vars_chunks())
 
     res = _calc_num_poly_vars(
         chunk,
@@ -61,9 +61,9 @@ def test_poly_vars_ratio():
     assert numpy.allclose(res["num_variable"].values, [3, 2])
     assert numpy.allclose(res["num_poly"].values, [1, 1])
 
-    vars.desired_num_vars_per_chunk = 2
+    variants.desired_num_vars_per_chunk = 2
     res = calc_poly_vars_ratio_per_var(
-        vars,
+        variants,
         poly_threshold=0.51,
         min_num_samples=3,
         pops={"pop1": list(range(5)), "pop2": list(range(5, 10))},

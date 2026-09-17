@@ -23,17 +23,17 @@ def test_filter_missing():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, False, False], ...] == filtered_gts)
 
-    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0.5)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_missing_data(orig_vars, max_allowed_missing_rate=0.5)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, True, False], ...] == filtered_gts)
 
-    vars = filter_by_missing_data(orig_vars, max_allowed_missing_rate=-0.1)
+    variants = filter_by_missing_data(orig_vars, max_allowed_missing_rate=-0.1)
     with pytest.raises(StopIteration):
-        next(vars.iter_vars_chunks())
+        next(variants.iter_vars_chunks())
 
 
 def test_filter_mafs():
@@ -45,16 +45,16 @@ def test_filter_mafs():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_maf(orig_vars, max_allowed_maf=0.9)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_maf(orig_vars, max_allowed_maf=0.9)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, True, False], ...] == filtered_gts)
 
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_maf(orig_vars, max_allowed_maf=0.7)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_maf(orig_vars, max_allowed_maf=0.7)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[False, True, False], ...] == filtered_gts)
 
-    stats = gather_filtering_stats(vars)
+    stats = gather_filtering_stats(variants)
     assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}
 
 
@@ -67,18 +67,18 @@ def test_filter_obs_het():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
 
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=0)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_obs_het(orig_vars, max_allowed_obs_het=0)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[False, False, True], ...] == filtered_gts)
 
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=4 / 5)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_obs_het(orig_vars, max_allowed_obs_het=4 / 5)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, True, True], ...] == filtered_gts)
 
 
@@ -92,19 +92,19 @@ def test_metadata():
     )
     # before filtering
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
-    assert vars.num_samples == 5
-    assert vars.ploidy == 2
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    assert variants.num_samples == 5
+    assert variants.ploidy == 2
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
 
     # after filtering
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
-    filtered_gts = numpy.ma.getdata(next(vars.iter_vars_chunks())._gt_array._gts)
+    variants = filter_by_obs_het(orig_vars, max_allowed_obs_het=1.5 / 5.0)
+    filtered_gts = numpy.ma.getdata(next(variants.iter_vars_chunks())._gt_array._gts)
     assert numpy.all(gts[[True, False, True], ...] == filtered_gts)
-    assert vars.num_samples == 5
-    assert vars.ploidy == 2
+    assert variants.num_samples == 5
+    assert variants.ploidy == 2
 
 
 def test_filter_samples():
@@ -116,11 +116,11 @@ def test_filter_samples():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_samples(orig_vars, samples=[0, 1, 2])
-    assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
+    variants = filter_samples(orig_vars, samples=[0, 1, 2])
+    assert numpy.all(next(variants.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
 
-    vars = filter_samples(orig_vars, samples=slice(3))
-    assert numpy.all(next(vars.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
+    variants = filter_samples(orig_vars, samples=slice(3))
+    assert numpy.all(next(variants.iter_vars_chunks()).gts.gt_values == gts[:, :3, :])
 
 
 def test_filter_ld():
@@ -132,9 +132,9 @@ def test_filter_ld():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
     with pytest.raises(StopIteration):
-        next(vars.iter_vars_chunks())
+        next(variants.iter_vars_chunks())
 
     gts = numpy.array(
         [
@@ -144,8 +144,8 @@ def test_filter_ld():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
@@ -158,8 +158,8 @@ def test_filter_ld():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, False, False, True, False], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
@@ -170,8 +170,8 @@ def test_filter_ld():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, False, False], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
@@ -182,8 +182,8 @@ def test_filter_ld():
         ]
     )
     orig_vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, False, False], :] == chunk.gts.gt_values)
 
     gts = numpy.array(
@@ -200,13 +200,13 @@ def test_filter_ld():
             _FromGtListChunkIterFactory(gts=[gts]),
             desired_num_vars_per_chunk=len_chunk,
         )
-        vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+        variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
         filtered_gts = numpy.vstack(
-            [chunk.gts.gt_values for chunk in vars.iter_vars_chunks()]
+            [chunk.gts.gt_values for chunk in variants.iter_vars_chunks()]
         )
         assert numpy.all(gts[[True, False, False, True, False], :] == filtered_gts)
 
-        stats = gather_filtering_stats(vars)
+        stats = gather_filtering_stats(variants)
         assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
 
 
@@ -220,20 +220,20 @@ def test_get_metadata():
     )
     samples = [0, 1, 2, 3, 4]
     orig_vars = Variants.from_gt_array(gts, samples=samples)
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    vars = filter_by_missing_data(vars, max_allowed_missing_rate=0.99)
-    assert list(vars.samples) == samples
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    variants = filter_by_missing_data(variants, max_allowed_missing_rate=0.99)
+    assert list(variants.samples) == samples
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
 
     orig_vars = Variants.from_gt_array(gts, samples=samples)
-    vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
-    chunk = next(vars.iter_vars_chunks())
+    variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+    chunk = next(variants.iter_vars_chunks())
     assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
 
 
-def _stack_gts(vars):
-    return numpy.vstack([chunk.gts.gt_values for chunk in vars.iter_vars_chunks()])
+def _stack_gts(variants):
+    return numpy.vstack([chunk.gts.gt_values for chunk in variants.iter_vars_chunks()])
 
 
 GTS_FOR_REITERATION = numpy.array(
@@ -259,28 +259,28 @@ def _create_vars_for_reiteration(chunk_size):
 def test_filtered_vars_can_be_iterated_more_than_once():
     gts = GTS_FOR_REITERATION
     for chunk_size in range(1, 5):
-        vars = filter_by_missing_data(
+        variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        assert numpy.all(_stack_gts(vars) == gts)
-        assert numpy.all(_stack_gts(vars) == gts)
+        assert numpy.all(_stack_gts(variants) == gts)
+        assert numpy.all(_stack_gts(variants) == gts)
 
         # the stats are the ones of the last pass, they are not accumulated
-        stats = gather_filtering_stats(vars)
+        stats = gather_filtering_stats(variants)
         assert stats == {"missing_data": {"vars_processed": 4, "vars_kept": 4}}
 
 
 def test_chained_filters_can_be_iterated_more_than_once():
     gts = GTS_FOR_REITERATION
     for chunk_size in range(1, 5):
-        vars = filter_by_missing_data(
+        variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        vars = filter_by_maf(vars, max_allowed_maf=0.99)
-        assert numpy.all(_stack_gts(vars) == gts)
-        assert numpy.all(_stack_gts(vars) == gts)
+        variants = filter_by_maf(variants, max_allowed_maf=0.99)
+        assert numpy.all(_stack_gts(variants) == gts)
+        assert numpy.all(_stack_gts(variants) == gts)
 
-        stats = gather_filtering_stats(vars)
+        stats = gather_filtering_stats(variants)
         assert stats == {
             "missing_data": {"vars_processed": 4, "vars_kept": 4},
             "maf": {"vars_processed": 4, "vars_kept": 4},
@@ -303,42 +303,42 @@ def test_ld_filtered_vars_can_be_iterated_more_than_once():
             _FromGtListChunkIterFactory(gts=[gts], samples=[0, 1, 2, 3, 4]),
             desired_num_vars_per_chunk=chunk_size,
         )
-        vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+        variants = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
         # the second pass has to start with no reference genotype, as the
         # first one did
-        assert numpy.all(_stack_gts(vars) == expected)
-        assert numpy.all(_stack_gts(vars) == expected)
+        assert numpy.all(_stack_gts(variants) == expected)
+        assert numpy.all(_stack_gts(variants) == expected)
 
-        stats = gather_filtering_stats(vars)
+        stats = gather_filtering_stats(variants)
         assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
 
 
 def test_asking_for_the_metadata_does_not_consume_the_vars():
     gts = GTS_FOR_REITERATION
     for chunk_size in range(1, 5):
-        vars = filter_by_missing_data(
+        variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        assert vars.num_samples == 5
-        assert vars.ploidy == 2
-        assert list(vars.samples) == SAMPLES_FOR_REITERATION
-        assert numpy.all(_stack_gts(vars) == gts)
+        assert variants.num_samples == 5
+        assert variants.ploidy == 2
+        assert list(variants.samples) == SAMPLES_FOR_REITERATION
+        assert numpy.all(_stack_gts(variants) == gts)
 
 
 def test_sample_filter_metadata_does_not_depend_on_the_call_order():
     kept_samples = [0, 1, 2]
 
     # metadata asked for before iterating
-    vars = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
-    assert list(vars.samples) == kept_samples
-    assert vars.num_samples == 3
-    assert numpy.all(_stack_gts(vars) == GTS_FOR_REITERATION[:, :3, :])
+    variants = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
+    assert list(variants.samples) == kept_samples
+    assert variants.num_samples == 3
+    assert numpy.all(_stack_gts(variants) == GTS_FOR_REITERATION[:, :3, :])
 
     # metadata asked for after iterating
-    vars = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
-    assert numpy.all(_stack_gts(vars) == GTS_FOR_REITERATION[:, :3, :])
-    assert list(vars.samples) == kept_samples
-    assert vars.num_samples == 3
+    variants = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
+    assert numpy.all(_stack_gts(variants) == GTS_FOR_REITERATION[:, :3, :])
+    assert list(variants.samples) == kept_samples
+    assert variants.num_samples == 3
 
 
 def test_several_vars_can_share_one_filtered_source():
@@ -357,11 +357,11 @@ def test_several_vars_can_share_one_filtered_source():
 
 def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
     for chunk_size in range(1, 5):
-        vars = filter_by_missing_data(
+        variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        res1 = calc_obs_het_stats_per_var(vars)
-        res2 = calc_obs_het_stats_per_var(vars)
+        res1 = calc_obs_het_stats_per_var(variants)
+        res2 = calc_obs_het_stats_per_var(variants)
         assert res1["hist_counts"].sum().iloc[0] == 4
         assert numpy.all(res1["hist_counts"] == res2["hist_counts"])
         assert numpy.allclose(res1["mean"], res2["mean"])

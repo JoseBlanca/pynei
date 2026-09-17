@@ -23,7 +23,7 @@ class _ChunkIteratorFactory:
         self.dist_between_vars = dist_between_vars
         self.create_gts_funct = create_gts_funct
         self.num_samples = num_samples
-        self.samples = tuple(range(1, num_samples + 1))
+        self.samples = tuple(f"sample_{idx}" for idx in range(1, num_samples + 1))
         self.chunk_size = chunk_size
         self.ploidy = 2
 
@@ -44,12 +44,11 @@ class _ChunkIteratorFactory:
         gt_array = self.create_gts_funct(
             num_vars=num_vars, num_samples=self.num_samples
         ).gt_values
-        sample_names = [f"sample_{idx}" for idx in range(1, self.num_samples + 1)]
 
         for chunk_start in range(0, num_vars, self.chunk_size):
             chunk_stop = chunk_start + self.chunk_size
             chunk_gts = Genotypes(
-                gt_array[chunk_start:chunk_stop, ...], samples=sample_names
+                gt_array[chunk_start:chunk_stop, ...], samples=self.samples
             )
             vars_info = pandas.DataFrame(
                 {
@@ -77,8 +76,8 @@ def generate_vars(
         num_samples,
         chunk_size,
     )
-    vars = Variants(chunk_iterator_factory, desired_num_vars_per_chunk=chunk_size)
-    return vars
+    variants = Variants(chunk_iterator_factory, desired_num_vars_per_chunk=chunk_size)
+    return variants
 
 
 def create_gts_funct(num_vars, num_samples, maf, ploidy=2):
@@ -89,7 +88,7 @@ def create_gts_funct(num_vars, num_samples, maf, ploidy=2):
 
 
 if __name__ == "__main__":
-    vars = generate_vars(
+    variants = generate_vars(
         num_chroms=2,
         num_vars_per_chrom=10,
         dist_between_vars=1000,

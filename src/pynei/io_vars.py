@@ -33,7 +33,7 @@ def _create_metadata_path(output_dir):
 
 
 def write_vars(
-    vars: Variants,
+    variants: Variants,
     output_dir: Path,
     numpy_array_compression_level=config.DEF_NUMPY_GZIP_COMPRESSION_LEVEL,
 ):
@@ -41,7 +41,7 @@ def write_vars(
     if output_dir.exists():
         if any(output_dir.iterdir()):
             raise ValueError(
-                f"The dir to write the vars into should be empty, but it is not: {output_dir}"
+                f"The dir to write the variants into should be empty, but it is not: {output_dir}"
             )
     else:
         output_dir.mkdir(parents=True)
@@ -49,15 +49,15 @@ def write_vars(
     metadata = {
         "var_dir_format_version": VAR_DIR_FORMAT_VERSION,
         "var_chunks_metadata": [],
-        "num_samples": vars.num_samples,
-        "ploidy": vars.ploidy,
+        "num_samples": variants.num_samples,
+        "ploidy": variants.ploidy,
     }
 
-    samples = vars.samples
+    samples = variants.samples
     if samples:
         metadata["samples"] = list(samples)
 
-    for chunk_idx, chunk in enumerate(vars.iter_vars_chunks()):
+    for chunk_idx, chunk in enumerate(variants.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
         chunk_dir.mkdir()
         chunk_metadata = {"dir": str(chunk_dir.relative_to(output_dir))}

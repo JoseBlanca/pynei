@@ -4,7 +4,7 @@ import numpy
 import pandas
 
 from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME, MISSING_ALLELE
-from pynei.utils_pop import _calc_pops_idxs
+from pynei.utils_pop import Pops, _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
 
 
@@ -62,7 +62,7 @@ def _calc_obs_het_per_var(chunk, pops):
 
 def calc_obs_het_stats_per_var(
     variants,
-    pops: list[str] | None = None,
+    pops: Pops | None = None,
     hist_kwargs=None,
 ):
     pops = _calc_pops_idxs(pops, variants.samples)
@@ -161,7 +161,7 @@ def _calc_maf_per_var(
 
 def calc_major_allele_stats_per_var(
     variants,
-    pops: list[str] | None = None,
+    pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
     hist_kwargs=None,
 ):

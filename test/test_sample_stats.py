@@ -12,9 +12,9 @@ def test_filter_missing():
             [[-1, -1], [-1, -1], [-1, -1], [-1, -1], [-1, -1]],
         ]
     )
-    vars = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
-    vars.desired_num_vars_per_chunk = 2
-    res = calc_per_sample_stats(vars)
+    variants = Variants.from_gt_array(gts, samples=[0, 1, 2, 3, 4])
+    variants.desired_num_vars_per_chunk = 2
+    res = calc_per_sample_stats(variants)
     expected = [0.33333, 0.33333, 0.33333, 0.33333, 0.666667]
     assert numpy.allclose(res["missing_gt_rate"], expected)
 

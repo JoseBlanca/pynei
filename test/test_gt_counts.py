@@ -20,8 +20,8 @@ def test_obs_het_stats():
             [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],  # snp3
         ]
     )
-    vars = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
+    chunk = next(variants.iter_vars_chunks())
 
     res = _calc_gt_is_het(chunk)
     expected = [
@@ -51,7 +51,7 @@ def test_obs_het_stats():
     assert res["obs_het_per_var"].values.shape == (3, 2)
 
     pop_name = pynei.config.DEF_POP_NAME
-    res = calc_obs_het_stats_per_var(vars, hist_kwargs={"num_bins": 4})
+    res = calc_obs_het_stats_per_var(variants, hist_kwargs={"num_bins": 4})
     assert numpy.allclose(res["mean"].loc[pop_name], [0.5])
     assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
     assert all(res["hist_counts"][pop_name] == [0, 1, 1, 0])
@@ -66,8 +66,8 @@ def test_count_alleles_per_var():
             [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],  # snp3
         ]
     )
-    vars = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
+    chunk = next(variants.iter_vars_chunks())
 
     res = _count_alleles_per_var(
         chunk, pops={0: [0, 1, 2, 3]}, calc_freqs=True, min_num_samples=1
@@ -109,8 +109,8 @@ def test_count_alleles_per_var():
     pop_name = pynei.config.DEF_POP_NAME
     numpy.random.seed(42)
     gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
-    vars = Variants.from_gt_array(gt_array)
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array)
+    chunk = next(variants.iter_vars_chunks())
     res = _count_alleles_per_var(chunk, calc_freqs=False, min_num_samples=1)
     assert numpy.all(
         res["counts"][pop_name]["allele_counts"].values == [[4, 2], [5, 1]]
@@ -118,8 +118,8 @@ def test_count_alleles_per_var():
     assert numpy.all(res["counts"][pop_name]["missing_gts_per_var"] == [0, 0])
 
     gt_array = numpy.random.randint(-1, 2, size=(2, 10, 2))
-    vars = Variants.from_gt_array(gt_array)
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array)
+    chunk = next(variants.iter_vars_chunks())
     res = _count_alleles_per_var(chunk, calc_freqs=True, min_num_samples=7)
     assert numpy.all(
         res["counts"][pop_name]["allele_counts"].values == [[7, 6], [7, 8]]
@@ -141,8 +141,8 @@ def test_maf_stats():
             [[-1, -1], [-1, -1], [-1, -1], [-1, -1]],  # snp3
         ]
     )
-    vars = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gts, samples=[1, 2, 3, 4])
+    chunk = next(variants.iter_vars_chunks())
     counts = _count_alleles_per_var(
         chunk, pops={0: slice(None, None)}, min_num_samples=1, calc_freqs=False
     )
@@ -159,7 +159,7 @@ def test_maf_stats():
     )
 
     res = calc_major_allele_stats_per_var(
-        vars, hist_kwargs={"num_bins": 4}, min_num_samples=1
+        variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
     pop_name = pynei.config.DEF_POP_NAME
     assert numpy.allclose(res["mean"].loc[pop_name], [0.535714])
@@ -168,8 +168,8 @@ def test_maf_stats():
 
     numpy.random.seed(42)
     gt_array = numpy.random.randint(-1, 3, size=(3, 10, 2))
-    vars = Variants.from_gt_array(gt_array, samples=list(range(0, 10)))
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array, samples=list(range(0, 10)))
+    chunk = next(variants.iter_vars_chunks())
     res = _calc_maf_per_var(
         chunk,
         pops={"pop1": slice(5), "pop2": slice(5, 10)},
@@ -181,7 +181,7 @@ def test_maf_stats():
     assert list(mafs.columns) == ["pop1", "pop2"]
 
     res = calc_major_allele_stats_per_var(
-        vars,
+        variants,
         hist_kwargs={"num_bins": 20},
         min_num_samples=3,
         pops={"pop1": list(range(5)), "pop2": list(range(4, 10))},

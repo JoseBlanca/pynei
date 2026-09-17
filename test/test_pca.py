@@ -29,8 +29,8 @@ def test_mat012():
     missing_mask[2, :, :] = True
     gt_array = numpy.ma.array(gt_array, mask=missing_mask)
 
-    vars = Variants.from_gt_array(gt_array)
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array)
+    chunk = next(variants.iter_vars_chunks())
     with pytest.raises(ValueError):
         _create_012_gt_matrix(chunk)
 
@@ -43,8 +43,8 @@ def test_mat012():
     gt_array[1, 0, 1] = 3
     gt_array[1, 3, 0] = 3
     gt_array[1, 3, 1] = 3
-    vars = Variants.from_gt_array(gt_array)
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gt_array)
+    chunk = next(variants.iter_vars_chunks())
     with pytest.raises(ValueError):
         _create_012_gt_matrix(chunk)
 
@@ -52,8 +52,8 @@ def test_mat012():
     expected = [[1, 2, 0, 0], [1, 0, 0, 2], [0, 0, 0, 0]]
     assert numpy.all(mat012 == expected)
 
-    vars.desired_num_vars_per_chunk = 2
-    mat012_2 = create_012_gt_matrix(vars, transform_to_biallelic=True)
+    variants.desired_num_vars_per_chunk = 2
+    mat012_2 = create_012_gt_matrix(variants, transform_to_biallelic=True)
     assert numpy.array_equal(mat012, mat012_2)
 
 
@@ -79,8 +79,8 @@ def test_pca_vars():
     num_indis = 20
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
-    vars = Variants.from_gt_array(gt_array)
-    do_pca_with_vars(vars)
+    variants = Variants.from_gt_array(gt_array)
+    do_pca_with_vars(variants)
 
 
 def test_pcoa():
@@ -99,16 +99,16 @@ def test_pcoa_with_vars():
     num_indis = 20
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
-    vars = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array)
 
-    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=True)
-    do_pcoa_with_vars(vars, use_approx_embedding_algorithm=False)
+    do_pcoa_with_vars(variants, use_approx_embedding_algorithm=True)
+    do_pcoa_with_vars(variants, use_approx_embedding_algorithm=False)
 
 
 def test_mat012_keeps_the_missing_gts():
     gt_array = numpy.array([[[0, 0], [0, 0], [0, 0], [-1, -1], [1, 1], [0, -1]]])
-    vars = Variants.from_gt_array(gt_array)
-    mat012 = create_012_gt_matrix(vars)
+    variants = Variants.from_gt_array(gt_array)
+    mat012 = create_012_gt_matrix(variants)
     assert numpy.all(mat012 == [[0, 0, 0, MISSING_ALLELE, 2, MISSING_ALLELE]])
 
 
@@ -126,9 +126,9 @@ def test_pca_vars_with_missing_gts():
     gt_array[: num_vars // 2, 0, :] = MISSING_ALLELE
     samples = [f"pop1_{idx}" for idx in range(num_samples_pop1)]
     samples += [f"pop2_{idx}" for idx in range(num_samples_pop2)]
-    vars = Variants.from_gt_array(gt_array, samples=samples)
+    variants = Variants.from_gt_array(gt_array, samples=samples)
 
-    projections = do_pca_with_vars(vars)["projections"]
+    projections = do_pca_with_vars(variants)["projections"]
     pc1 = projections.iloc[:, 0]
     sample_with_missing = pc1.iloc[0]
     pop1 = pc1.iloc[1:num_samples_pop1].mean()

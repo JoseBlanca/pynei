@@ -192,20 +192,22 @@ def test_kosman_pairwise():
     d = numpy.full(shape=(11, 2), fill_value=1, dtype=numpy.int16)
     gts = numpy.stack((a, b, c, d), axis=0)
     gts = numpy.transpose(gts, axes=(1, 0, 2)).astype(numpy.int16)
-    vars = Variants.from_gt_array(gts, samples=["a", "b", "c", "d"])
+    variants = Variants.from_gt_array(gts, samples=["a", "b", "c", "d"])
 
     expected = [0.33333333, 0.75, 0.75, 0.5, 0.5, 0.0]
-    dists = calc_pairwise_kosman_dists(vars)
+    dists = calc_pairwise_kosman_dists(variants)
     assert numpy.allclose(dists.dist_vector, expected)
 
-    dists_emb = calc_pairwise_kosman_dists(vars, use_approx_embedding_algorithm=True)
+    dists_emb = calc_pairwise_kosman_dists(
+        variants, use_approx_embedding_algorithm=True
+    )
     dists = dists.square_dists
     dists_emb = dists_emb.square_dists
     dists_emb = dists_emb.loc[dists.index, :].loc[:, dists.index]
     assert numpy.corrcoef(dists_emb.values.flat, dists.values.flat)[0, 1] > 0.99
 
     dists_emb = calc_pairwise_kosman_dists(
-        vars, use_approx_embedding_algorithm=True, num_processes=2
+        variants, use_approx_embedding_algorithm=True, num_processes=2
     )
     dists_emb = dists_emb.square_dists
     dists_emb = dists_emb.loc[dists.index, :].loc[:, dists.index]
@@ -280,22 +282,22 @@ def test_dest_jost_distance():
 def test_kosman_pairwise_with_filtered_vars():
     # the chunks are asked for once per distance calculation, and the
     # embedding algorithm asks for them several times, so this used to give
-    # wrong distances, or to fail, when the vars came from a filter
+    # wrong distances, or to fail, when the variants came from a filter
     rng = numpy.random.default_rng(7)
     num_samples = 30
     gts = rng.integers(0, 2, size=(60, num_samples, 2))
     samples = [f"sample_{idx}" for idx in range(num_samples)]
 
     def create_vars():
-        vars = Variants.from_gt_array(gts, samples=samples)
-        vars.desired_num_vars_per_chunk = 10
-        return vars
+        variants = Variants.from_gt_array(gts, samples=samples)
+        variants.desired_num_vars_per_chunk = 10
+        return variants
 
     expected = calc_pairwise_kosman_dists(create_vars()).dist_vector
 
     filtered_vars = filter_by_missing_data(create_vars(), max_allowed_missing_rate=1)
     # filtering nothing out has to leave the distances untouched, no matter how
-    # many times the filtered vars are used
+    # many times the filtered variants are used
     assert numpy.allclose(
         calc_pairwise_kosman_dists(filtered_vars).dist_vector, expected
     )

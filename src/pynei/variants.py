@@ -48,7 +48,9 @@ class Genotypes:
         if not numpy.issubdtype(gt_array.dtype, numpy.integer):
             raise ValueError("gts must be an integer numpy array")
         if not gt_array.ndim == 3:
-            raise ValueError("gts must be a 3D numpy array: vars x samples x ploidy")
+            raise ValueError(
+                "gts must be a 3D numpy array: variants x samples x ploidy"
+            )
 
         if gt_array.flags.writeable:
             gt_array = gt_array.copy()
@@ -140,7 +142,7 @@ class Genotypes:
     def to_012(self) -> numpy.ndarray:
         """It returns the number of non-major alleles of each genotype.
 
-        The result is a vars x samples array. Any genotype with a missing
+        The result is a variants x samples array. Any genotype with a missing
         allele is set to MISSING_ALLELE. Every allele that is not the major one
         counts the same, so variants with more than two alleles are, in fact,
         transformed into biallelic ones.

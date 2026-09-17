@@ -49,10 +49,10 @@ def _calc_final_result_per_sample_stats(accumulated_result):
     )
 
 
-def calc_per_sample_stats(vars: Variants):
+def calc_per_sample_stats(variants: Variants):
     pipeline = Pipeline(
         map_functs=[_calc_per_sample_stats_for_chunk],
         reduce_funct=_reduce_per_sample_stats,
         after_reduce_funct=_calc_final_result_per_sample_stats,
     )
-    return pipeline.map_and_reduce(vars)
+    return pipeline.map_and_reduce(variants)

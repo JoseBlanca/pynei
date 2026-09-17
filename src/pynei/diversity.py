@@ -1,5 +1,4 @@
 from functools import partial
-from typing import Sequence
 
 import numpy
 import pandas
@@ -9,7 +8,7 @@ from pynei.config import (
     DEF_POLY_THRESHOLD,
 )
 from pynei.gt_counts import _count_alleles_per_var, _calc_maf_per_var
-from pynei.utils_pop import _calc_pops_idxs
+from pynei.utils_pop import Pops, _calc_pops_idxs
 from pynei.utils_stats import _calc_stats_per_var
 from pynei.pipeline import Pipeline
 
@@ -88,7 +87,7 @@ def _calc_unbiased_exp_het_per_var(
 
 def calc_exp_het_stats_per_var(
     variants,
-    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
     ploidy=None,
     hist_kwargs=None,
@@ -119,7 +118,7 @@ def calc_exp_het_stats_per_var(
 def _calc_num_poly_vars(
     chunk,
     poly_threshold=DEF_POLY_THRESHOLD,
-    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ):
     res = _calc_maf_per_var(
@@ -156,7 +155,7 @@ def _accumulate_pop_sums(
 def calc_poly_vars_ratio_per_var(
     variants,
     poly_threshold=DEF_POLY_THRESHOLD,
-    pops: dict[str, Sequence[str] | Sequence[int]] | None = None,
+    pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
 ):
     samples = variants.samples

@@ -256,9 +256,9 @@ def test_pairwiseld():
         [(0, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
         [(0, 0), (0, 1), (0, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
     ]
-    vars = Variants.from_gt_array(gts)
-    r2s = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(vars)]
-    chunk = next(vars.iter_vars_chunks())
+    variants = Variants.from_gt_array(gts)
+    r2s = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(variants)]
+    chunk = next(variants.iter_vars_chunks())
     r2_array = _calc_rogers_huff_r2(
         chunk.gts.to_012(),
         chunk.gts.to_012(),
@@ -266,9 +266,9 @@ def test_pairwiseld():
     assert numpy.allclose(r2s, r2_array[numpy.triu_indices(r2_array.shape[0], k=1)])
 
     # test using several chunks in the calculation
-    vars = Variants.from_gt_array(gts)
-    vars.desired_num_vars_per_chunk = 2
-    r2s2 = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(vars)]
+    variants = Variants.from_gt_array(gts)
+    variants.desired_num_vars_per_chunk = 2
+    r2s2 = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(variants)]
     assert numpy.allclose(sorted(r2s), sorted(r2s2))
 
     # test distances
@@ -280,8 +280,8 @@ def test_pairwiseld():
     )
     chunk = VariantsChunk(Genotypes(gts), vars_info=vars_info)
     chunk_iter_factory = _FromChunkIterFactory(chunk)
-    vars = Variants(chunk_iter_factory)
-    ld_ress = list(calc_pairwise_rogers_huff_r2(vars))
+    variants = Variants(chunk_iter_factory)
+    ld_ress = list(calc_pairwise_rogers_huff_r2(variants))
     assert ld_ress[0].chrom_var1 == "1"
     assert ld_ress[0].chrom_var2 == "1"
     assert ld_ress[0].pos_var1 == 10
@@ -289,14 +289,14 @@ def test_pairwiseld():
     dists = sorted([res.dist_in_bp for res in ld_ress if res.dist_in_bp is not None])
     assert dists == [10, 10, 10, 20]
 
-    ld_ress = list(calc_pairwise_rogers_huff_r2(vars, max_dist=15))
+    ld_ress = list(calc_pairwise_rogers_huff_r2(variants, max_dist=15))
     dists = sorted([res.dist_in_bp for res in ld_ress])
     assert dists == [10, 10, 10]
 
     num_vars = 500
     num_chroms = 2
     num_samples = 100
-    vars = generate_vars(
+    variants = generate_vars(
         num_chroms=num_chroms,
         num_vars_per_chrom=num_vars,
         dist_between_vars=100,
@@ -310,11 +310,11 @@ def test_pairwiseld():
     )
 
     time1 = time.time()
-    r2_results = calc_pairwise_rogers_huff_r2(vars)
+    r2_results = calc_pairwise_rogers_huff_r2(variants)
     for res in r2_results:
         res.r2
     time2 = time.time()
-    res = calc_rogers_huff_r2_matrix(vars)
+    res = calc_rogers_huff_r2_matrix(variants)
     time3 = time.time()
     # print(time2 - time1)
     # print(time3 - time2)
@@ -326,7 +326,7 @@ def test_ld_vs_dist():
     num_vars = 30
     num_chroms = 2
     num_samples = 20
-    vars = generate_vars(
+    variants = generate_vars(
         num_chroms=num_chroms,
         num_vars_per_chrom=num_vars,
         dist_between_vars=100,
@@ -338,21 +338,22 @@ def test_ld_vs_dist():
         num_samples=num_samples,
         chunk_size=num_vars,
     )
-    pops = {"pop1": slice(10), "pop2": slice(10, None)}
-    next(vars.iter_vars_chunks())
-    res = get_ld_and_dist_for_pops(vars, pops=pops, method=LDCalcMethod.MATRIX)
+    samples = variants.samples
+    pops = {"pop1": samples[:10], "pop2": samples[10:]}
+    next(variants.iter_vars_chunks())
+    res = get_ld_and_dist_for_pops(variants, pops=pops, method=LDCalcMethod.MATRIX)
     assert sorted(res.keys()) == ["pop1", "pop2"]
-    get_ld_and_dist_for_pops(vars, pops=pops, method=LDCalcMethod.GENERATOR)
+    get_ld_and_dist_for_pops(variants, pops=pops, method=LDCalcMethod.GENERATOR)
     assert sorted(res.keys()) == ["pop1", "pop2"]
 
 
 def test_ld_for_pops_with_filtered_vars():
     # one Variants is created per pop on top of the given one, so every pop
-    # used to get fewer vars than the previous one when the given vars came
+    # used to get fewer variants than the previous one when the given variants came
     # from a filter
     num_vars = 30
     num_samples = 20
-    vars = generate_vars(
+    variants = generate_vars(
         num_chroms=2,
         num_vars_per_chrom=num_vars,
         dist_between_vars=100,
@@ -364,18 +365,19 @@ def test_ld_for_pops_with_filtered_vars():
         num_samples=num_samples,
         chunk_size=10,
     )
-    vars = filter_by_missing_data(vars, max_allowed_missing_rate=1)
+    variants = filter_by_missing_data(variants, max_allowed_missing_rate=1)
 
-    pops = {"pop1": slice(10), "pop2": slice(10, None)}
-    res = get_ld_and_dist_for_pops(vars, pops=pops, max_dist=100000)
+    samples = variants.samples
+    pops = {"pop1": samples[:10], "pop2": samples[10:]}
+    res = get_ld_and_dist_for_pops(variants, pops=pops, max_dist=100000)
     num_measures_per_pop = {pop: len(list(lds)) for pop, lds in res.items()}
     assert num_measures_per_pop["pop1"] == num_measures_per_pop["pop2"]
     assert num_measures_per_pop["pop1"] > 0
 
 
 def test_r2_matrix_with_chunks_of_different_sizes():
-    # the chunks that a filter yields do not all have the same number of vars,
-    # and the r2 matrix has to be the same no matter how the vars are chunked
+    # the chunks that a filter yields do not all have the same number of variants,
+    # and the r2 matrix has to be the same no matter how the variants are chunked
     num_vars = 6
     num_samples = 10
     rng = numpy.random.default_rng(42)
