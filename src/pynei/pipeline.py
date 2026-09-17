@@ -1,7 +1,6 @@
 from typing import Callable, Iterator
 import functools
 
-import threaded_map_reduce
 from pynei.config import MAP_REDUCE_CHUNK_SIZE
 
 
@@ -44,6 +43,8 @@ class Pipeline:
         use_multiprocessing = num_processes > 1
 
         if use_multiprocessing:
+            import threaded_map_reduce
+
             if self.reduce_funct:
                 result = threaded_map_reduce.map_reduce(
                     map_fn=process_chunk,

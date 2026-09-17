@@ -48,7 +48,7 @@ FREE_THREADED_TEST = [
     "uv",
     "run",
     "--python",
-    "cpython-3.13.3+freethreaded",
+    "cpython-3.14.7+freethreaded",
     "pytest",
     "test/",
 ]

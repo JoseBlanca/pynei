@@ -3,8 +3,8 @@ LABEL description="Container for pyNei testing"
 # Use the latest stable Debian image
 FROM debian:bookworm-slim
 
-ENV UV_VERSION=0.7.8
-ENV PYODIDE_VERSION=0.27.6
+ENV UV_VERSION=0.12.15
+ENV PYODIDE_VERSION=314.0.7
 
 RUN apt-get update && apt-get install -y \
     curl \
@@ -46,14 +46,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --compile-bytecode --no-install-project
 
 # Create a virtualenv using the free-threaded Python
-RUN uv venv --python cpython-3.13.3+freethreaded
+RUN uv venv --python cpython-3.14.7+freethreaded
 # Activate it and install ruamel.yaml with --no-deps to avoid ruamel-yaml-clib
-RUN uv pip install --python cpython-3.13.3+freethreaded ruamel.yaml --no-deps
+RUN uv pip install --python cpython-3.14.7+freethreaded ruamel.yaml --no-deps
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --python cpython-3.13.3+freethreaded --locked --compile-bytecode --no-install-project
+    uv sync --python cpython-3.14.7+freethreaded --locked --compile-bytecode --no-install-project
 
 # nvm
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     node -v && npm -v
 
