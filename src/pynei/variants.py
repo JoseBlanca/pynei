@@ -1,5 +1,6 @@
 from typing import Iterator, Self, Sequence, Protocol
 from collections.abc import Sequence as SequenceABC
+from collections import Counter
 import itertools
 
 import numpy
@@ -14,6 +15,22 @@ from .config import (
     DEF_POP_NAME,
 )
 from pynei.gt_counts import _count_alleles_per_var
+
+
+def _normalize_samples(samples):
+    """The samples are always a tuple, no matter how they were given.
+
+    A tuple is immutable and hashable, and its items are plain python objects,
+    so they can be written to json and they do not surprise the user with the
+    numpy scalars or the fixed width strings of a numpy array.
+    """
+    if samples is None or isinstance(samples, tuple):
+        return samples
+    # item() turns the numpy scalars, like the np.str_ of a numpy array of
+    # samples, into python ones
+    return tuple(
+        sample.item() if hasattr(sample, "item") else sample for sample in samples
+    )
 
 
 class Genotypes:
@@ -46,18 +63,17 @@ class Genotypes:
                     f"Missing values should be {MISSING_ALLELE} in the values and masked, but {MISSING_ALLELE} and mask do not match"
                 )
 
+        samples = _normalize_samples(samples)
         if samples is not None:
-            samples = numpy.array(samples)
-            samples.flags.writeable = False
-            if len(set(samples)) < samples.size:
-                unique_elements, counts = numpy.unique(samples, return_counts=True)
-                duplicated_samples = unique_elements[counts > 1]
+            if len(set(samples)) < len(samples):
+                duplicated_samples = [
+                    sample for sample, count in Counter(samples).items() if count > 1
+                ]
                 raise ValueError(f"Duplicated sample names: {duplicated_samples}")
-            samples.flags.writeable = False
 
-            if gt_array.shape[1] != samples.size:
+            if gt_array.shape[1] != len(samples):
                 raise ValueError(
-                    f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({samples.size}) do not match"
+                    f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({len(samples)}) do not match"
                 )
 
         self._gts = gt_array
@@ -102,10 +118,14 @@ class Genotypes:
 
     def filter_samples_with_idxs(self, index):
         gts = self.gt_ma_array[:, index, :]
-        samples = self.samples[index]
-
-        samples.flags.writeable = False
         gts.flags.writeable = False
+
+        samples = self.samples
+        if samples is not None:
+            if isinstance(index, slice):
+                samples = samples[index]
+            else:
+                samples = tuple(samples[idx] for idx in index)
         return self.__class__(gt_array=gts, samples=samples)
 
     def filter_samples(self, samples: Sequence[str] | Sequence[int]) -> Self:
@@ -308,8 +328,10 @@ class Variants:
         return self._vars_chunks_iter_factory._get_metadata()
 
     @property
-    def samples(self):
-        return self._get_metadata()["samples"]
+    def samples(self) -> tuple | None:
+        # the factories should already give a tuple, this is here so that the
+        # ones written outside of pynei can not break the promise
+        return _normalize_samples(self._get_metadata()["samples"])
 
     @property
     def num_samples(self):

@@ -365,3 +365,15 @@ def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
         assert res1["hist_counts"].sum().iloc[0] == 4
         assert numpy.all(res1["hist_counts"] == res2["hist_counts"])
         assert numpy.allclose(res1["mean"], res2["mean"])
+
+
+def test_filtered_samples_are_a_tuple():
+    variants = _create_vars_for_reiteration(2)
+    assert variants.samples == tuple(SAMPLES_FOR_REITERATION)
+
+    filtered = filter_by_missing_data(variants, max_allowed_missing_rate=1)
+    assert filtered.samples == tuple(SAMPLES_FOR_REITERATION)
+
+    filtered = filter_samples(variants, samples=[0, 1, 2])
+    assert filtered.samples == (0, 1, 2)
+    assert next(filtered.iter_vars_chunks()).gts.samples == (0, 1, 2)

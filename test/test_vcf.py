@@ -109,3 +109,12 @@ def test_vars_from_vcf():
             [[0, 1], [0, 2], [1, 1]],
         ]
         assert numpy.array_equal(chunk.gts.gt_values, numpy.array(gts))
+
+
+def test_vcf_samples_are_a_tuple():
+    with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
+        tmp.write(VCF_45)
+        tmp.flush()
+        vars = vars_from_vcf(Path(tmp.name))
+        assert vars.samples == ("NA00001", "NA00002", "NA00003")
+        assert next(vars.iter_vars_chunks()).gts.samples == vars.samples

@@ -72,8 +72,8 @@ def _parse_metadata(fhand):
         else:
             raise ValueError("Invalid VCF file, it has no header")
 
-    metadata["samples"] = numpy.array(metadata["samples"])
-    num_samples = metadata["samples"].size
+    metadata["samples"] = tuple(metadata["samples"])
+    num_samples = len(metadata["samples"])
     metadata["num_samples"] = num_samples
     try:
         var_line = next(fhand)

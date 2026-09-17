@@ -4,7 +4,7 @@ from typing import Sequence
 
 import numpy
 
-from pynei.variants import Variants, VariantsChunk
+from pynei.variants import Variants, VariantsChunk, _normalize_samples
 from pynei.gt_counts import (
     _calc_gt_is_missing,
     _calc_maf_per_var,
@@ -155,9 +155,9 @@ class _SampleFilterIterFactory(_FilterChunkIterFactory):
         # this filter does change the samples, so it cannot just hand over the
         # metadata of the vars being filtered
         metadata = dict(self.in_vars._get_metadata())
-        samples = metadata.get("samples")
+        samples = _normalize_samples(metadata.get("samples"))
         if samples is not None:
-            samples = numpy.asarray(samples)[self.sample_idxs]
+            samples = tuple(samples[idx] for idx in self.sample_idxs)
         metadata["samples"] = samples
         metadata["num_samples"] = len(self.sample_idxs)
         return metadata

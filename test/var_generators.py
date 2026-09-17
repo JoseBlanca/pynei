@@ -23,7 +23,7 @@ class _ChunkIteratorFactory:
         self.dist_between_vars = dist_between_vars
         self.create_gts_funct = create_gts_funct
         self.num_samples = num_samples
-        self.samples = list(range(1, num_samples + 1))
+        self.samples = tuple(range(1, num_samples + 1))
         self.chunk_size = chunk_size
         self.ploidy = 2
 

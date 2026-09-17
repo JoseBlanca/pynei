@@ -117,3 +117,36 @@ def test_write_vars_creates_the_dir_and_refuses_a_used_one():
         # writing again into the same dir would mix the two sets of chunks
         with pytest.raises(ValueError):
             write_vars(vars, vars_dir)
+
+
+def test_loaded_samples_are_a_tuple_and_the_metadata_is_not_aliased():
+    chunk_factory = _ChunkFactory(["chrom1", "chrom1"], [1, 2], num_samples=4, ploidy=2)
+    chunk_factory.chunk = VariantsChunk(
+        gts=Genotypes(
+            chunk_factory.chunk.gts.gt_ma_array, samples=["a", "b", "c", "d"]
+        ),
+        vars_info=chunk_factory.chunk.vars_info,
+    )
+    chunk_factory.num_samples = 4
+    vars = Variants(chunk_factory)
+
+    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
+        write_vars(vars, tempdir)
+        vars_dir = VariantsDir(tempdir)
+
+        loaded = load_vars(tempdir)
+        assert loaded.samples == ("a", "b", "c", "d")
+        assert next(loaded.iter_vars_chunks()).gts.samples == ("a", "b", "c", "d")
+
+        # whoever gets the metadata can not change the one of the dir
+        metadata = vars_dir._get_metadata()
+        metadata["samples"] = ("z",)
+        assert vars_dir._get_metadata()["samples"] == ("a", "b", "c", "d")
+
+
+def test_samples_with_a_numpy_array_can_be_written():
+    gt_array = numpy.random.randint(0, 2, (3, 4, 2))
+    vars = Variants.from_gt_array(gt_array, samples=numpy.array(["a", "b", "c", "d"]))
+    with tempfile.TemporaryDirectory(suffix=".vars") as tempdir:
+        write_vars(vars, tempdir)
+        assert load_vars(tempdir).samples == ("a", "b", "c", "d")

@@ -54,14 +54,8 @@ def write_vars(
     }
 
     samples = vars.samples
-    if samples is not None and not len(samples):
-        samples = None
-    if samples is not None:
-        # numpy scalars, like the np.str_ that a numpy array of samples gives,
-        # are not json serializable, item() turns them into python ones
-        metadata["samples"] = [
-            sample.item() if hasattr(sample, "item") else sample for sample in samples
-        ]
+    if samples:
+        metadata["samples"] = list(samples)
 
     for chunk_idx, chunk in enumerate(vars.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
@@ -119,22 +113,24 @@ def write_vars(
 class VariantsDir:
     def __init__(self, dir):
         self.dir = Path(dir)
-        self.metadata = json.load(open(_create_metadata_path(self.dir), "rt"))
-        if "samples" in self.metadata:
-            self.samples = numpy.array(self.metadata["samples"])
+        with open(_create_metadata_path(self.dir), "rt") as fhand:
+            self.metadata = json.load(fhand)
+        samples = self.metadata.get("samples")
+        if samples is not None:
+            samples = tuple(samples)
+        self.metadata["samples"] = samples
+        self.samples = samples
         self.num_samples = self.metadata["num_samples"]
         self.ploidy = int(self.metadata["ploidy"])
         self._chunks_metadata = self.metadata["var_chunks_metadata"]
 
     def _get_metadata(self):
-        return self.metadata
+        # a copy, so that whoever gets it can not modify the metadata that was
+        # read from the dir
+        return dict(self.metadata)
 
     def iter_vars_chunks(self):
-        samples = None
-        with open(_create_metadata_path(self.dir), "rt") as fhand:
-            metadata = json.load(fhand)
-            if "samples" in metadata:
-                samples = list(metadata["samples"])
+        samples = self.samples
 
         for chunk_metadata in self._chunks_metadata:
             chunk_kwargs = {}

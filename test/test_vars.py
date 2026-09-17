@@ -153,3 +153,50 @@ def test_gts_to_012_with_the_vcf_missing_encoding():
     )
     # the major allele is 1, sample a is missing and sample d is 2/2
     assert numpy.all(gts.to_012() == [[-1, 0, 0, 2, 0]])
+
+
+def test_samples_are_always_a_tuple_of_python_objects():
+    gt_array = numpy.random.randint(0, 2, size=(3, 4, 2))
+    expected = ("a", "b", "c", "d")
+
+    for given_samples in (
+        ["a", "b", "c", "d"],
+        ("a", "b", "c", "d"),
+        numpy.array(["a", "b", "c", "d"]),
+    ):
+        gts = Genotypes(gt_array, samples=given_samples)
+        assert gts.samples == expected
+        # not numpy scalars, so they can be written to json
+        assert all(type(sample) is str for sample in gts.samples)
+
+        variants = Variants.from_gt_array(gt_array, samples=given_samples)
+        assert variants.samples == expected
+        assert Variants.from_vars(variants).samples == expected
+
+    # the names keep their type, only the container is normalized
+    assert Variants.from_gt_array(gt_array, samples=[0, 1, 2, 3]).samples == (
+        0,
+        1,
+        2,
+        3,
+    )
+
+    assert Genotypes(gt_array).samples is None
+    assert Variants.from_gt_array(gt_array).samples is None
+
+
+def test_genotypes_filter_samples_gives_a_tuple():
+    gt_array = numpy.random.randint(0, 2, size=(3, 4, 2))
+    gts = Genotypes(gt_array, samples=numpy.array(["a", "b", "c", "d"]))
+
+    assert gts.filter_samples(["b", "d"]).samples == ("b", "d")
+    assert gts.filter_samples_with_idxs(numpy.array([0, 2])).samples == ("a", "c")
+    assert gts.filter_samples_with_idxs(slice(0, 2)).samples == ("a", "b")
+    # the gts of a chunk without samples can still be filtered
+    assert Genotypes(gt_array).filter_samples_with_idxs([0, 2]).samples is None
+
+
+def test_duplicated_samples_are_refused():
+    gt_array = numpy.random.randint(0, 2, size=(3, 4, 2))
+    with pytest.raises(ValueError, match="Duplicated sample names"):
+        Genotypes(gt_array, samples=["a", "b", "a", "b"])
