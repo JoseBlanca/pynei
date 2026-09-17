@@ -16,44 +16,26 @@ from .ld_calc import _calc_rogers_huff_r2
 class _FilterChunkIterFactory:
     def __init__(self, in_vars, filter_funct):
         self.in_vars = in_vars
-        self._chunks = in_vars.iter_vars_chunks()
         self.filter_funct = filter_funct
         self.num_vars_processed = 0
         self.num_vars_kept = 0
-        self._metadata = None
-        self._first_processed_chunk = None
 
     def _get_metadata(self):
-        if self._metadata is not None:
-            return self._metadata.copy()
+        # filtering variations changes neither the samples nor the ploidy, so
+        # the metadata is the one of the vars being filtered
+        return self.in_vars._get_metadata()
 
-        if self._first_processed_chunk is None:
-            try:
-                first_chunk = next(self.iter_vars_chunks())
-            except StopIteration:
-                raise RuntimeError("No variations to get the data from")
-            self._first_processed_chunk = first_chunk
-        else:
-            first_chunk = self._first_processed_chunk
-
-        self._metadata = {
-            "samples": first_chunk.gts.samples,
-            "num_samples": first_chunk.num_samples,
-            "ploidy": first_chunk.gts.ploidy,
-        }
-        return self._metadata.copy()
+    def _reset_filtering_stats(self):
+        self.num_vars_processed = 0
+        self.num_vars_kept = 0
 
     def iter_vars_chunks(self):
-        if self._first_processed_chunk is not None:
-            yield self._first_processed_chunk
+        # the iterator over the vars to filter has to be asked for here, and
+        # not in __init__, because otherwise all the calls to this method would
+        # share, and exhaust, one single iterator
+        self._reset_filtering_stats()
 
-        for chunk in self._chunks:
-            if self._metadata is None:
-                self._metadata = {
-                    "samples": chunk.gts.samples,
-                    "num_samples": chunk.num_samples,
-                    "ploidy": chunk.gts.ploidy,
-                }
+        for chunk in self.in_vars.iter_vars_chunks():
             filtered_chunk, num_vars_kept = self.filter_funct(chunk)
             self.num_vars_processed += chunk.num_vars
             self.num_vars_kept += num_vars_kept
@@ -165,6 +147,21 @@ def _filter_samples(chunk, sample_idxs):
 class _SampleFilterIterFactory(_FilterChunkIterFactory):
     kind = "sample"
 
+    def __init__(self, in_vars, filter_funct, sample_idxs):
+        super().__init__(in_vars, filter_funct)
+        self.sample_idxs = sample_idxs
+
+    def _get_metadata(self):
+        # this filter does change the samples, so it cannot just hand over the
+        # metadata of the vars being filtered
+        metadata = dict(self.in_vars._get_metadata())
+        samples = metadata.get("samples")
+        if samples is not None:
+            samples = numpy.asarray(samples)[self.sample_idxs]
+        metadata["samples"] = samples
+        metadata["num_samples"] = len(self.sample_idxs)
+        return metadata
+
 
 def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Variants:
     orig_samples = vars.samples
@@ -173,7 +170,7 @@ def filter_samples(vars, samples: Sequence[str] | Sequence[int] | slice) -> Vari
     sample_idxs = numpy.where(numpy.isin(orig_samples, samples))[0]
 
     filter_samples = partial(_filter_samples, sample_idxs=sample_idxs)
-    chunk_factory = _SampleFilterIterFactory(vars, filter_samples)
+    chunk_factory = _SampleFilterIterFactory(vars, filter_samples, sample_idxs)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
         desired_num_vars_per_chunk=vars.desired_num_vars_per_chunk,
@@ -226,27 +223,14 @@ def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
 class _FilterLDChunkIterFactory(_FilterChunkIterFactory):
     kind = "ld_and_maf"
 
-    def __init__(self, in_vars, filter_funct):
-        self.in_vars = in_vars
-        self._chunks = in_vars.iter_vars_chunks()
-        self.filter_funct = filter_funct
-        self.num_vars_processed = 0
-        self.num_vars_kept = 0
-        self._metadata = None
-        self._first_processed_chunk = None
-
     def iter_vars_chunks(self):
-        if self._first_processed_chunk is not None:
-            yield self._first_processed_chunk
+        self._reset_filtering_stats()
 
+        # ref_gt is carried from one chunk to the next one, so it has to be
+        # local to this method, otherwise a second iteration would start with
+        # the last reference genotype of the previous one
         ref_gt = None
-        for chunk in self._chunks:
-            if self._metadata is None:
-                self._metadata = {
-                    "samples": chunk.gts.samples,
-                    "num_samples": chunk.num_samples,
-                    "ploidy": chunk.gts.ploidy,
-                }
+        for chunk in self.in_vars.iter_vars_chunks():
             filtered_chunk, num_vars_kept, ref_gt = self.filter_funct(chunk, ref_gt)
             self.num_vars_processed += chunk.num_vars
             self.num_vars_kept += num_vars_kept

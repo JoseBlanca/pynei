@@ -1,4 +1,5 @@
 import math
+import random
 
 import numpy
 import pandas
@@ -10,7 +11,7 @@ from pynei.dists import (
     calc_jost_dest_pop_dists,
     _DestDistCalculator,
 )
-from pynei import Variants, calc_pairwise_kosman_dists
+from pynei import Variants, calc_pairwise_kosman_dists, filter_by_missing_data
 from pynei.dists import _calc_pops_idxs
 
 
@@ -274,3 +275,38 @@ def test_dest_jost_distance():
 
     dists = calc_jost_dest_pop_dists(snps, pops=pops, min_num_samples=6)
     assert numpy.all(numpy.isnan(dists.dist_vector))
+
+
+def test_kosman_pairwise_with_filtered_vars():
+    # the chunks are asked for once per distance calculation, and the
+    # embedding algorithm asks for them several times, so this used to give
+    # wrong distances, or to fail, when the vars came from a filter
+    rng = numpy.random.default_rng(7)
+    num_samples = 30
+    gts = rng.integers(0, 2, size=(60, num_samples, 2))
+    samples = [f"sample_{idx}" for idx in range(num_samples)]
+
+    def create_vars():
+        vars = Variants.from_gt_array(gts, samples=samples)
+        vars.desired_num_vars_per_chunk = 10
+        return vars
+
+    expected = calc_pairwise_kosman_dists(create_vars()).dist_vector
+
+    filtered_vars = filter_by_missing_data(create_vars(), max_allowed_missing_rate=1)
+    # filtering nothing out has to leave the distances untouched, no matter how
+    # many times the filtered vars are used
+    assert numpy.allclose(
+        calc_pairwise_kosman_dists(filtered_vars).dist_vector, expected
+    )
+    assert numpy.allclose(
+        calc_pairwise_kosman_dists(filtered_vars).dist_vector, expected
+    )
+
+    random.seed(0)
+    dists_emb = calc_pairwise_kosman_dists(
+        filtered_vars, use_approx_embedding_algorithm=True
+    )
+    square_dists_emb = dists_emb.square_dists
+    assert square_dists_emb.shape == (num_samples, num_samples)
+    assert not numpy.any(numpy.isnan(square_dists_emb.values))

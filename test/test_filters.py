@@ -10,6 +10,7 @@ from pynei.var_filters import (
     filter_samples,
     filter_by_ld_and_maf,
 )
+from pynei.gt_counts import calc_obs_het_stats_per_var
 from .var_generators import _FromGtListChunkIterFactory
 
 
@@ -229,3 +230,138 @@ def test_get_metadata():
     vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
     chunk = next(vars.iter_vars_chunks())
     assert numpy.all(gts[[True, True, True], :] == chunk.gts.gt_values)
+
+
+def _stack_gts(vars):
+    return numpy.vstack([chunk.gts.gt_values for chunk in vars.iter_vars_chunks()])
+
+
+GTS_FOR_REITERATION = numpy.array(
+    [
+        [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+        [[0, 1], [1, 0], [2, 2], [1, 0], [0, 0]],
+        [[1, 1], [2, 2], [0, 1], [0, 0], [1, 2]],
+        [[0, 0], [0, 1], [1, 1], [0, 2], [2, 0]],
+    ]
+)
+SAMPLES_FOR_REITERATION = [0, 1, 2, 3, 4]
+
+
+def _create_vars_for_reiteration(chunk_size):
+    return Variants(
+        _FromGtListChunkIterFactory(
+            gts=[GTS_FOR_REITERATION], samples=SAMPLES_FOR_REITERATION
+        ),
+        desired_num_vars_per_chunk=chunk_size,
+    )
+
+
+def test_filtered_vars_can_be_iterated_more_than_once():
+    gts = GTS_FOR_REITERATION
+    for chunk_size in range(1, 5):
+        vars = filter_by_missing_data(
+            _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
+        )
+        assert numpy.all(_stack_gts(vars) == gts)
+        assert numpy.all(_stack_gts(vars) == gts)
+
+        # the stats are the ones of the last pass, they are not accumulated
+        stats = gather_filtering_stats(vars)
+        assert stats == {"missing_data": {"vars_processed": 4, "vars_kept": 4}}
+
+
+def test_chained_filters_can_be_iterated_more_than_once():
+    gts = GTS_FOR_REITERATION
+    for chunk_size in range(1, 5):
+        vars = filter_by_missing_data(
+            _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
+        )
+        vars = filter_by_maf(vars, max_allowed_maf=0.99)
+        assert numpy.all(_stack_gts(vars) == gts)
+        assert numpy.all(_stack_gts(vars) == gts)
+
+        stats = gather_filtering_stats(vars)
+        assert stats == {
+            "missing_data": {"vars_processed": 4, "vars_kept": 4},
+            "maf": {"vars_processed": 4, "vars_kept": 4},
+        }
+
+
+def test_ld_filtered_vars_can_be_iterated_more_than_once():
+    gts = numpy.array(
+        [
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 0], [2, 1], [0, 0], [0, 0], [0, 0]],
+            [[0, 1], [0, 0], [2, 0], [1, 0], [0, 0]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+            [[1, 0], [0, 2], [0, 1], [0, 0], [2, 2]],
+        ]
+    )
+    expected = gts[[True, False, False, True, False], :]
+    for chunk_size in range(1, 6):
+        orig_vars = Variants(
+            _FromGtListChunkIterFactory(gts=[gts], samples=[0, 1, 2, 3, 4]),
+            desired_num_vars_per_chunk=chunk_size,
+        )
+        vars = filter_by_ld_and_maf(orig_vars, max_allowed_maf=0.9)
+        # the second pass has to start with no reference genotype, as the
+        # first one did
+        assert numpy.all(_stack_gts(vars) == expected)
+        assert numpy.all(_stack_gts(vars) == expected)
+
+        stats = gather_filtering_stats(vars)
+        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
+
+
+def test_asking_for_the_metadata_does_not_consume_the_vars():
+    gts = GTS_FOR_REITERATION
+    for chunk_size in range(1, 5):
+        vars = filter_by_missing_data(
+            _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
+        )
+        assert vars.num_samples == 5
+        assert vars.ploidy == 2
+        assert list(vars.samples) == SAMPLES_FOR_REITERATION
+        assert numpy.all(_stack_gts(vars) == gts)
+
+
+def test_sample_filter_metadata_does_not_depend_on_the_call_order():
+    kept_samples = [0, 1, 2]
+
+    # metadata asked for before iterating
+    vars = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
+    assert list(vars.samples) == kept_samples
+    assert vars.num_samples == 3
+    assert numpy.all(_stack_gts(vars) == GTS_FOR_REITERATION[:, :3, :])
+
+    # metadata asked for after iterating
+    vars = filter_samples(_create_vars_for_reiteration(2), samples=kept_samples)
+    assert numpy.all(_stack_gts(vars) == GTS_FOR_REITERATION[:, :3, :])
+    assert list(vars.samples) == kept_samples
+    assert vars.num_samples == 3
+
+
+def test_several_vars_can_share_one_filtered_source():
+    # get_ld_and_dist_for_pops creates one Variants per pop on top of a common
+    # one, and every one of them has to see all the variations
+    gts = GTS_FOR_REITERATION
+    for chunk_size in range(1, 5):
+        common_vars = filter_by_missing_data(
+            _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
+        )
+        pop1_vars = filter_samples(common_vars, samples=[0, 1, 2])
+        pop2_vars = filter_samples(common_vars, samples=[2, 3, 4])
+        assert numpy.all(_stack_gts(pop1_vars) == gts[:, :3, :])
+        assert numpy.all(_stack_gts(pop2_vars) == gts[:, 2:, :])
+
+
+def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
+    for chunk_size in range(1, 5):
+        vars = filter_by_missing_data(
+            _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
+        )
+        res1 = calc_obs_het_stats_per_var(vars)
+        res2 = calc_obs_het_stats_per_var(vars)
+        assert res1["hist_counts"].sum().iloc[0] == 4
+        assert numpy.all(res1["hist_counts"] == res2["hist_counts"])
+        assert numpy.allclose(res1["mean"], res2["mean"])

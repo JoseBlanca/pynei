@@ -17,6 +17,7 @@ from pynei.ld import (
     LDCalcMethod,
 )
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
+from pynei.var_filters import filter_by_missing_data
 from .var_generators import generate_vars
 
 
@@ -343,3 +344,71 @@ def test_ld_vs_dist():
     assert sorted(res.keys()) == ["pop1", "pop2"]
     get_ld_and_dist_for_pops(vars, pops=pops, method=LDCalcMethod.GENERATOR)
     assert sorted(res.keys()) == ["pop1", "pop2"]
+
+
+def test_ld_for_pops_with_filtered_vars():
+    # one Variants is created per pop on top of the given one, so every pop
+    # used to get fewer vars than the previous one when the given vars came
+    # from a filter
+    num_vars = 30
+    num_samples = 20
+    vars = generate_vars(
+        num_chroms=2,
+        num_vars_per_chrom=num_vars,
+        dist_between_vars=100,
+        create_gts_funct=partial(
+            create_gts,
+            independence_rate=0.5,
+            geno_freqs={(0, 0): 0.45, (1, 0): 0.45, (1, 1): 0.45},
+        ),
+        num_samples=num_samples,
+        chunk_size=10,
+    )
+    vars = filter_by_missing_data(vars, max_allowed_missing_rate=1)
+
+    pops = {"pop1": slice(10), "pop2": slice(10, None)}
+    res = get_ld_and_dist_for_pops(vars, pops=pops, max_dist=100000)
+    num_measures_per_pop = {pop: len(list(lds)) for pop, lds in res.items()}
+    assert num_measures_per_pop["pop1"] == num_measures_per_pop["pop2"]
+    assert num_measures_per_pop["pop1"] > 0
+
+
+def test_r2_matrix_with_chunks_of_different_sizes():
+    # the chunks that a filter yields do not all have the same number of vars,
+    # and the r2 matrix has to be the same no matter how the vars are chunked
+    num_vars = 6
+    num_samples = 10
+    rng = numpy.random.default_rng(42)
+    gt_array = rng.integers(0, 2, size=(num_vars, num_samples, 2))
+    poss = numpy.arange(1, num_vars * 100 + 1, 100)
+
+    class _GivenChunksVars:
+        # the chunks are given as they are, they are not resized
+        def __init__(self, chunk_sizes):
+            self.chunk_sizes = chunk_sizes
+
+        def iter_vars_chunks(self):
+            start = 0
+            for chunk_size in self.chunk_sizes:
+                stop = start + chunk_size
+                vars_info = pandas.DataFrame(
+                    {
+                        VAR_TABLE_CHROM_COL: ["chrom_1"] * chunk_size,
+                        VAR_TABLE_POS_COL: poss[start:stop],
+                    }
+                )
+                yield VariantsChunk(
+                    Genotypes(gt_array[start:stop, ...]), vars_info=vars_info
+                )
+                start = stop
+
+    expected = calc_rogers_huff_r2_matrix(
+        _GivenChunksVars([num_vars]), check_no_mafs_above=None
+    )
+    for chunk_sizes in [[4, 2], [2, 4], [3, 2, 1], [1, 2, 3]]:
+        res = calc_rogers_huff_r2_matrix(
+            _GivenChunksVars(chunk_sizes), check_no_mafs_above=None
+        )
+        assert res["r2"].shape == (num_vars, num_vars)
+        assert numpy.allclose(res["dists_in_bp"], expected["dists_in_bp"])
+        assert numpy.allclose(numpy.abs(res["r2"]), numpy.abs(expected["r2"]))

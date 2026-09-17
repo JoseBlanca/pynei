@@ -104,10 +104,11 @@ def calc_rogers_huff_r2_matrix(
                     )
                     this_dists = numpy.abs(mat1 - mat2).astype(float)
 
+                    num_chroms1 = chroms1.size
                     chroms = pandas.concat([chroms1, chroms2])
                     chroms = pandas.factorize(chroms)[0]
-                    chroms1 = chroms[: chroms1.size]
-                    chroms2 = chroms[chroms2.size :]
+                    chroms1 = chroms[:num_chroms1]
+                    chroms2 = chroms[num_chroms1:]
                     mat1 = numpy.repeat(chroms1, chunk2.num_vars).reshape(
                         (chunk1.num_vars, chunk2.num_vars)
                     )
