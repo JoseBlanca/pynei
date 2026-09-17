@@ -65,10 +65,6 @@ def calc_obs_het_stats_per_var(
     pops: list[str] | None = None,
     hist_kwargs=None,
 ):
-    if hist_kwargs is None:
-        hist_kwargs = {}
-    hist_kwargs["range"] = hist_kwargs.get("range", (0, 1))
-
     pops = _calc_pops_idxs(pops, variants.samples)
 
     return _calc_stats_per_var(
@@ -76,6 +72,7 @@ def calc_obs_het_stats_per_var(
         calc_stats_for_chunk=partial(_calc_obs_het_per_var, pops=pops),
         get_stats_for_chunk_result=lambda x: x["obs_het_per_var"],
         hist_kwargs=hist_kwargs,
+        default_hist_range=(0, 1),
     )
 
 
@@ -168,10 +165,6 @@ def calc_major_allele_stats_per_var(
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
     hist_kwargs=None,
 ):
-    if hist_kwargs is None:
-        hist_kwargs = {}
-    hist_kwargs["range"] = hist_kwargs.get("range", (0, 1))
-
     samples = variants.samples
     pops = _calc_pops_idxs(pops, samples)
 
@@ -182,4 +175,5 @@ def calc_major_allele_stats_per_var(
         ),
         get_stats_for_chunk_result=lambda x: x["major_allele_freqs_per_var"],
         hist_kwargs=hist_kwargs,
+        default_hist_range=(0, 1),
     )

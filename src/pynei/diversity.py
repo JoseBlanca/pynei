@@ -94,10 +94,6 @@ def calc_exp_het_stats_per_var(
     hist_kwargs=None,
     unbiased=True,
 ):
-    if hist_kwargs is None:
-        hist_kwargs = {}
-    hist_kwargs["range"] = hist_kwargs.get("range", (0, 1))
-
     samples = variants.samples
     pops = _calc_pops_idxs(pops, samples)
 
@@ -116,6 +112,7 @@ def calc_exp_het_stats_per_var(
         ),
         get_stats_for_chunk_result=lambda x: x["exp_het"],
         hist_kwargs=hist_kwargs,
+        default_hist_range=(0, 1),
     )
 
 

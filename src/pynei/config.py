@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 import array
 
 import pandas
@@ -26,7 +26,9 @@ PANDAS_STRING_STORAGE = "pyarrow"
 DEF_NUM_VARS_PER_CHUNK = 10000
 LINEAL = "lineal"
 LOGARITHMIC = "logarithmic"
-BinType = Enum("BinType", [LINEAL, LOGARITHMIC])
+# a StrEnum, so that a member is equal to the string it was built from and
+# BinType(a_string) gives the member back
+BinType = StrEnum("BinType", {LINEAL: LINEAL, LOGARITHMIC: LOGARITHMIC})
 DEF_POP_NAME = "pop"
 MIN_NUM_SAMPLES_FOR_POP_STAT = 20
 MISSING_ALLELE = -1

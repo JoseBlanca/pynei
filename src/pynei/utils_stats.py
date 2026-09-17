@@ -3,29 +3,41 @@ from functools import partial
 import numpy
 import pandas
 
-from pynei.config import (
-    BinType,
-    LINEAL,
-    LOGARITHMIC,
-)
+from pynei.config import BinType
 from pynei.pipeline import Pipeline
 
 
 def _prepare_bins(
-    hist_kwargs: dict,
-    range=tuple[int, int],
-    default_num_bins=40,
-    default_bin_type: BinType = LINEAL,
+    hist_kwargs: dict | None = None,
+    default_range: tuple[float, float] = (0, 1),
+    default_num_bins: int = 40,
+    default_bin_type: BinType = BinType.lineal,
 ):
-    num_bins = hist_kwargs.get("num_bins", default_num_bins)
-    bin_type = hist_kwargs.get("bin_type", default_bin_type)
+    """It returns the edges of the histogram bins.
 
-    if bin_type == LINEAL:
-        bins = numpy.linspace(range[0], range[1], num_bins + 1)
-    elif bin_type == LOGARITHMIC:
-        if range[0] == 0:
-            raise ValueError("range[0] cannot be zero for logarithmic bins")
-        bins = numpy.logspace(range[0], range[1], num_bins + 1)
+    hist_kwargs is the dict that the user gave, it is only read, never
+    modified. It can have the keys range, num_bins and bin_type.
+    """
+    if hist_kwargs is None:
+        hist_kwargs = {}
+
+    hist_range = hist_kwargs.get("range", default_range)
+    num_bins = hist_kwargs.get("num_bins", default_num_bins)
+    # BinType is a StrEnum, so this takes both the strings and the members, and
+    # it raises for anything else
+    bin_type = BinType(hist_kwargs.get("bin_type", default_bin_type))
+
+    if bin_type is BinType.lineal:
+        bins = numpy.linspace(hist_range[0], hist_range[1], num_bins + 1)
+    else:
+        if hist_range[0] <= 0:
+            raise ValueError(
+                f"range[0] should be positive for logarithmic bins, but it is {hist_range[0]}"
+            )
+        # logspace takes the exponents, not the limits of the range
+        bins = numpy.logspace(
+            numpy.log10(hist_range[0]), numpy.log10(hist_range[1]), num_bins + 1
+        )
     return bins
 
 
@@ -68,10 +80,9 @@ def _calc_stats_per_var(
     calc_stats_for_chunk,
     get_stats_for_chunk_result,
     hist_kwargs=None,
+    default_hist_range: tuple[float, float] = (0, 1),
 ):
-    if hist_kwargs is None:
-        hist_kwargs = {}
-    hist_bins_edges = _prepare_bins(hist_kwargs, range=hist_kwargs["range"])
+    hist_bins_edges = _prepare_bins(hist_kwargs, default_range=default_hist_range)
 
     collect_stats_from_pop_dframes = partial(
         _collect_stats_from_pop_dframes, hist_bins_edges=hist_bins_edges
