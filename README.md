@@ -146,3 +146,57 @@ and so does `calc_pairwise_kosman_dists`, which works out every pair of samples
 at once with matrix products: 20 chunks of 500 variants and 1000 samples take
 0.172 s with one thread and 0.051 s with six, 3.4x. It used to compare the
 samples pair by pair in python, and then the threads made it slower, 0.8x.
+
+### GWAS
+
+`calc_gwas` tests the association of every variant with a trait, a
+continuous one with a linear model and a binomial one, 0 or 1, with a
+logistic one. The phenotype is a pandas Series indexed by sample name, the
+covariates a DataFrame indexed the same way, and the samples without a
+phenotype are left out:
+
+```python
+kinship = pynei.calc_kinship(pruned_variants)
+res = pynei.calc_gwas(
+    variants, phenotype, trait="continuous", covariates=covariates, kinship=kinship
+)
+res.stats                         # one row per variant: beta, se, p_value
+res.null_model.heritability
+```
+
+The population structure is accounted for with a kinship, the genomic
+relationship matrix of VanRaden and GCTA that `calc_kinship` calculates in
+one pass, given as the covariance of a random polygenic effect, which is what
+a structured or related panel needs. Without a kinship the top principal
+components can be given as covariates, `kinship.principal_components(10)`
+gives them from the kinship without going over the variants again, which is
+enough for unrelated samples. Both at once is the Q+K model.
+
+A GWAS is two passes over the variants with one job in memory between them.
+The kinship is a samples x samples matrix accumulated chunk by chunk, like
+the Kosman distances. The null model, covariates and kinship, is fitted once,
+an eigendecomposition of the kinship for the linear mixed model and a
+penalized quasi likelihood for the logistic one, and then every variant is
+tested in one more pass, with the variance components kept at the null, P3D.
+Every test is one matrix product per chunk, so the four models cost about the
+same. Over 100000 variants:
+
+| samples | kinship 1 thread / 6 | linear | linear mixed | logistic | logistic mixed |
+| ------- | -------------------- | ------ | ------------ | -------- | -------------- |
+| 100     | 0.13 s / 0.04        | 0.14 s | 0.14 s       | 0.52 s   | 0.13 s         |
+| 1000    | 1.33 s / 0.37        | 1.20 s | 1.48 s       | 3.32 s   | 1.51 s         |
+
+With 5000 samples the null model is what costs, about 8 s of the 9.5 s of a
+linear mixed model over 20000 variants, 6 s of them the eigendecomposition.
+The test of a variant with a kinship is quadratic in the samples, and
+`use_grammar_gamma_approx=True` makes it linear, but it is only accurate when
+the structure is weak: with three subpops at an fst of 0.3 the statistic it
+gives is between half and one and a half times the exact one, so it is off by
+default.
+
+The results are checked against plink2, GMMAT, rrBLUP and R's glm on a
+simulated panel, `test/gwas_reference`: the kinship matches plink2
+`--make-rel`, with and without missing genotypes, the linear and the logistic
+regressions match plink2 `--glm`, the linear mixed model matches rrBLUP and,
+with `test="score"`, GMMAT, and the logistic mixed model matches GMMAT, to
+the digits those programs print.

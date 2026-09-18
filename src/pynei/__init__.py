@@ -36,11 +36,26 @@ from pynei.ld import (
 )
 from pynei.io_vars import write_vars, load_vars
 from pynei.sample_stats import calc_per_sample_stats
+from pynei.gwas import (
+    GWASModel,
+    GWASResult,
+    Kinship,
+    NullModel,
+    TestType,
+    TraitType,
+    calc_gwas,
+    calc_kinship,
+)
 
 __all__ = [
     "Distances",
     "FilteringStats",
+    "GWASModel",
+    "GWASResult",
+    "GWASTest",
+    "Kinship",
     "LDResult",
+    "NullModel",
     "PCAResult",
     "PCoAResult",
     "PerVarDistribs",
@@ -48,10 +63,14 @@ __all__ = [
     "PolyVarsStats",
     "R2Matrix",
     "StatsDistrib",
+    "TestType",
+    "TraitType",
     "VAR_TABLE_CHROM_COL",
     "VAR_TABLE_POS_COL",
     "Variants",
+    "calc_gwas",
     "calc_jost_dest_pop_dists",
+    "calc_kinship",
     "calc_ld_and_dist_per_pop",
     "calc_pairwise_euclidean_dists",
     "calc_pairwise_kosman_dists",
