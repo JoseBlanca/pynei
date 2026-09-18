@@ -1,5 +1,6 @@
 import pytest
 import numpy
+import pandas
 
 from pynei.pca import (
     _create_012_gt_matrix,
@@ -182,10 +183,6 @@ def test_mat012_with_no_variants():
 def test_mat012_with_threads_is_the_same_as_without():
     rng = numpy.random.default_rng(0)
     gt_array = rng.integers(0, 2, size=(500, 8, 2))
-    # two samples fixed for either allele, so that no variant is monomorphic,
-    # a monomorphic variant has no variance and do_pca can not standardize it
-    gt_array[:, 0, :] = 0
-    gt_array[:, 1, :] = 1
     samples = [f"sample_{idx}" for idx in range(8)]
 
     def create_vars():
@@ -200,3 +197,48 @@ def test_mat012_with_threads_is_the_same_as_without():
 
     projections = do_pca_from_variants(create_vars(), num_processes=4).projections
     assert numpy.allclose(projections, do_pca_from_variants(create_vars()).projections)
+
+
+def test_pca_refuses_traits_with_no_variance():
+    data = pandas.DataFrame(
+        {"a": [1.0, 2.0, 3.0], "fixed": [5.0, 5.0, 5.0], "b": [3.0, 1.0, 2.0]}
+    )
+    with pytest.raises(ValueError, match="no variance"):
+        do_pca(data)
+    # it says which ones, so that they can be removed
+    with pytest.raises(ValueError, match="fixed"):
+        do_pca(data)
+    # there is nothing to standardize by, but the PCA can be done without it
+    assert do_pca(data, standarize_data=False).projections.shape == (3, 3)
+
+
+def test_pca_from_variants_drops_the_monomorphic_variants():
+    rng = numpy.random.default_rng(0)
+    gt_array = rng.integers(0, 2, size=(20, 8, 2))
+    # three variants fixed, one of them fixed for the non reference allele
+    gt_array[3, :, :] = 0
+    gt_array[11, :, :] = 1
+    gt_array[17, :, :] = 0
+    samples = [f"sample_{idx}" for idx in range(8)]
+    variants = Variants.from_gt_array(gt_array, samples=samples)
+
+    res = do_pca_from_variants(variants)
+    # the variants that were used are the columns of the princomps
+    used = set(res.princomps.columns)
+    assert {3, 11, 17}.isdisjoint(used)
+    assert res.projections.shape[0] == 8
+
+    # a variant where every sample is het has no variance either, and its major
+    # allele freq is 0.5, so filtering by maf would not catch it
+    gt_array = rng.integers(0, 2, size=(20, 8, 2))
+    gt_array[5, :, 0] = 0
+    gt_array[5, :, 1] = 1
+    variants = Variants.from_gt_array(gt_array, samples=samples)
+    assert 5 not in set(do_pca_from_variants(variants).princomps.columns)
+
+
+def test_pca_from_variants_with_every_variant_fixed():
+    gt_array = numpy.zeros((10, 6, 2), dtype=int)
+    variants = Variants.from_gt_array(gt_array, samples=list("abcdef"))
+    with pytest.raises(ValueError, match="nothing to do a PCA with"):
+        do_pca_from_variants(variants)

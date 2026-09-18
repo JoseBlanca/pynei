@@ -89,7 +89,21 @@ def do_pca(data: pandas.DataFrame, center_data=True, standarize_data=True):
         data = data - data.mean(axis=0)
 
     if standarize_data:
-        data = data / data.std(axis=0)
+        stdevs = data.std(axis=0)
+        no_variance = stdevs == 0
+        if numpy.any(no_variance):
+            names = list(trait_names[no_variance])
+            shown = names[:10]
+            more = (
+                ""
+                if len(names) == len(shown)
+                else f", and {len(names) - len(shown)} more"
+            )
+            raise ValueError(
+                f"{len(names)} of the {num_traits} traits have no variance, so they can not "
+                f"be standardized, remove them or do not standardize: {shown}{more}"
+            )
+        data = data / stdevs
 
     U, Sigma, Vh = numpy.linalg.svd(data, full_matrices=False)
     singular_vals = Sigma
@@ -121,10 +135,28 @@ def _fill_missing_gts_with_var_mean(mat012):
     return numpy.where(is_missing, var_means[:, numpy.newaxis], mat012)
 
 
+def _remove_vars_with_no_variance(mat012: pandas.DataFrame) -> pandas.DataFrame:
+    """It removes the variants that have the same genotype in every sample.
+
+    mat012 has one row per sample and one column per variant, as do_pca takes
+    it. The variance is calculated in the same way that do_pca calculates it,
+    so that no variant that it would refuse is left behind.
+    """
+    has_variance = mat012.values.std(axis=0) > 0
+    if not has_variance.any():
+        raise ValueError(
+            "Every variant has the same genotype in every sample, there is nothing to do a PCA with"
+        )
+    return mat012.loc[:, has_variance]
+
+
 def do_pca_from_variants(variants, transform_to_biallelic=False, num_processes=1):
     """It does a PCA using the 012 matrix of the variants.
 
-    The missing genotypes are replaced by the mean of their variant.
+    The missing genotypes are replaced by the mean of their variant, and the
+    variants that have the same genotype in every sample are removed, because
+    they have no variance and the PCA standardizes the data. The variants that
+    were used are the columns of the princomps of the result.
     """
     mat012 = create_012_gt_matrix(
         variants,
@@ -133,6 +165,7 @@ def do_pca_from_variants(variants, transform_to_biallelic=False, num_processes=1
     )
     mat012 = _fill_missing_gts_with_var_mean(mat012)
     mat012 = pandas.DataFrame(mat012.T, index=variants.samples)
+    mat012 = _remove_vars_with_no_variance(mat012)
     return do_pca(mat012, center_data=True, standarize_data=True)
 
 
