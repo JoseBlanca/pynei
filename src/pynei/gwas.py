@@ -671,14 +671,53 @@ class _GLMNull:
         return beta, se, p_value
 
 
+def _fit_pql_for_tau(y, design, kinship, tau, eta, mu, tol, max_iter):
+    """The fixed effects and the linearization for one value of tau.
+
+    Every iteration is one weighted linear mixed model on the working trait,
+    with tau fixed, until the linear predictor settles. It gives the fixed
+    effects, the linear predictor and the mean, and the projection matrix
+    and the projected working trait of the last iteration, which the REML
+    step on tau needs.
+    """
+    num_samples = y.shape[0]
+    for _ in range(max_iter):
+        weights = mu * (1 - mu)
+        working = eta + (y - mu) / weights
+        sigma = tau * kinship
+        sigma[numpy.diag_indices(num_samples)] += 1 / weights
+        sigma_inv = numpy.linalg.inv(sigma)
+        sigma_inv_design = sigma_inv @ design
+        dsd = design.T @ sigma_inv_design
+        coefs = numpy.linalg.solve(dsd, sigma_inv_design.T @ working)
+        projection = sigma_inv - sigma_inv_design @ numpy.linalg.solve(
+            dsd, sigma_inv_design.T
+        )
+        pw = projection @ working
+        new_eta = design @ coefs + tau * (kinship @ pw)
+        change = numpy.abs(new_eta - eta).max() / (numpy.abs(eta).max() + 1)
+        eta = new_eta
+        mu = _expit(eta)
+        if change < tol:
+            break
+    else:
+        raise RuntimeError("The logistic mixed model did not converge")
+    return coefs, eta, mu, projection, pw
+
+
 class _GLMMNull(_ProjectionNull):
     """The logistic mixed model, penalized quasi-likelihood.
 
-    Breslow and Clayton 1993, as GMMAT fits it: every iteration is a linear
-    mixed model on the working trait with the weights of the logistic
-    model, and the variance of the kinship effect takes one average
-    information REML step. At convergence Py is the residual of the trait,
-    y - mu, which is what the score test uses.
+    Breslow and Clayton 1993, the model GMMAT fits. For a given variance
+    of the kinship effect, tau, the fixed effects and the random effect are
+    fitted by iterating a weighted linear mixed model on the working trait,
+    and then tau takes one average information REML step, a Newton step
+    kept inside the bracket of the taus already seen, as the REML score is
+    a function of tau alone once the rest has settled. Taking the step on
+    tau after every single linearization instead, as it was done at first,
+    made the two updates fight and tau cycle for ever on a panel of 1000
+    samples. At convergence Py is the residual of the trait, y - mu, which
+    is what the score test uses.
     """
 
     model = GWASModel.GLMM
@@ -686,50 +725,51 @@ class _GLMMNull(_ProjectionNull):
     def __init__(self, y, design, kinship, max_iter=GLMM_MAX_ITER, tol=GLMM_TOL):
         super().__init__()
         self.num_samples, num_coefs = design.shape
-        identity = numpy.eye(self.num_samples)
         coefs, mu = _fit_logistic(y, design)
         eta = design @ coefs
-        # the working trait with no kinship effect, and its variance as the
-        # first guess of the kinship variance, as GMMAT starts
         weights = mu * (1 - mu)
         working = eta + (y - mu) / weights
+        # the variance of the working trait is what tau would be if the
+        # kinship explained everything, a start that is too big rather than
+        # too small, and the bracket comes down from there
         tau = float(numpy.var(working)) / 2
+        # a tau whose score is positive asks for a bigger tau, one whose
+        # score is negative for a smaller one, so the two bracket the root
+        too_small = None
+        too_big = None
         for _ in range(max_iter):
-            weights = mu * (1 - mu)
-            working = eta + (y - mu) / weights
-            sigma = numpy.diag(1 / weights) + tau * kinship
-            sigma_inv = numpy.linalg.inv(sigma)
-            projection = _projection(sigma_inv, design)
-            sigma_inv_design = sigma_inv @ design
-            new_coefs = numpy.linalg.solve(
-                design.T @ sigma_inv_design, sigma_inv_design.T @ working
+            coefs, eta, mu, projection, pw = _fit_pql_for_tau(
+                y, design, kinship, tau, eta, mu, tol, max_iter
             )
-            pw = projection @ working
             kpw = kinship @ pw
             score = 0.5 * (pw @ kpw - numpy.einsum("ij,ji->", projection, kinship))
             ai = 0.5 * (kpw @ (projection @ kpw))
-            new_tau = tau + score / ai
-            if new_tau < 0:
-                new_tau = 0.0
-            eta = design @ new_coefs + new_tau * kpw
-            mu = _expit(eta)
-            change = max(
-                numpy.abs(new_coefs - coefs).max() / (numpy.abs(coefs).max() + tol),
-                abs(new_tau - tau) / (abs(tau) + tol),
-            )
-            coefs, tau = new_coefs, new_tau
-            if change < tol:
+            step = score / ai
+            if abs(step) < tol * (tau + tol):
                 break
+            if score > 0:
+                too_small = tau
+            else:
+                too_big = tau
+            new_tau = tau + step
+            if too_small is not None and too_big is not None:
+                if not too_small < new_tau < too_big:
+                    new_tau = math.sqrt(too_small * too_big)
+            elif new_tau <= 0:
+                new_tau = tau / 4
+            if new_tau < tol:
+                # the kinship explains nothing, tau is at the boundary
+                new_tau = 0.0
+                if tau == 0.0:
+                    break
+            tau = new_tau
         else:
             raise RuntimeError("The logistic mixed model did not converge")
         self.coefs = coefs
         self.genetic_variance = tau
         self.residual_variance = None
         self.heritability = None
-        weights = mu * (1 - mu)
-        sigma = numpy.diag(1 / weights) + tau * kinship
-        del identity
-        self.projection = _projection(numpy.linalg.inv(sigma), design)
+        self.projection = projection
         self.py = y - mu
 
     def test_chunk(self, dosages, is_poly):
