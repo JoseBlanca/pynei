@@ -51,16 +51,25 @@ pynei.write_vars(variants, "variants.vars", compression=pynei.Compression.NONE)
 
 Over 50000 variants and 1000 samples, 100 million genotypes:
 
-| compression | file   | write  | one pass over the file |
-| ----------- | ------ | ------ | ---------------------- |
-| `ZSTD`      |  18 MB | 0.14 s | 0.094 s                |
-| `NONE`      | 103 MB | 0.01 s | 0.019 s                |
+| compression | file   | write  | reading it, and nothing else |
+| ----------- | ------ | ------ | ---------------------------- |
+| `ZSTD`      |  18 MB | 0.14 s | 0.094 s                      |
+| `NONE`      | 103 MB | 0.01 s | 0.019 s                      |
 
-`ZSTD` is the default and it is the one to use in a browser, where the file has
-to be downloaded first and is then held in memory. `NONE` is five times faster
-to read, because the genotypes are mapped straight from the file into the
-arrays without being copied, and it is worth it when the file is on a local
-disk and you are going to go over it many times.
+`ZSTD` is the default. `NONE` is five times faster to read, because the
+genotypes are mapped straight from the file into the arrays without being
+copied, but that hardly shows in a calculation, because the chunks are read one
+ahead in a thread of their own and the reading happens while the work is being
+done. Over 100000 variants and 1000 samples:
+
+| compression | 1 thread | 2      | 4      | 6      |
+| ----------- | -------- | ------ | ------ | ------ |
+| `ZSTD`      | 1.549 s  | 0.805  | 0.438  | 0.353  |
+| `NONE`      | 1.543 s  | 0.792  | 0.425  | 0.344  |
+
+So `NONE` is only worth its six times the disk when the work done on every
+chunk is smaller than reading it, and `ZSTD` is the one a browser needs anyway,
+where the file has to be downloaded first and is then held in memory.
 
 `calc_per_var_distribs` calculates several statistics in one pass, sharing the
 allele counts between them, so ask it for everything you need at once instead of
@@ -92,6 +101,13 @@ the size of the chunks:
 | 5000               |     80 | 3.6x              | 4.3x               |
 | 20000              |     20 | 3.7x              | 3.5x               |
 | 50000              |      8 | 3.0x              | 2.7x               |
+
+While one chunk is being worked on the next one is read, in a thread of its
+own. Reading a chunk is decompressing it in arrow or parsing a VCF, and both of
+those let go of the GIL, so the reading hides behind the work: it takes about
+6% off a pass over a zstd file, and it is what makes `ZSTD` cost nothing
+against `NONE`. It holds one chunk more in memory. Only one thread reads, so
+this hides the reading, it does not make the reading itself faster.
 
 With a normal python the chunks have to be big for the threads to pay, because
 what is outside numpy, building the dataframes and the histograms, is done one

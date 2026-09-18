@@ -1,7 +1,63 @@
 from typing import Callable, Iterator, Protocol
 import functools
+import queue
+import threading
 
-from pynei.config import MAP_REDUCE_CHUNK_SIZE
+from pynei.config import MAP_REDUCE_CHUNK_SIZE, NUM_CHUNKS_READ_AHEAD
+
+
+# put in the queue after the last chunk, so that the thread reading them can
+# say that there are no more without closing anything
+_NO_MORE_CHUNKS = object()
+
+
+def _read_chunks_ahead(chunks, num_chunks_read_ahead=NUM_CHUNKS_READ_AHEAD):
+    """It reads the chunks in a thread of its own, ahead of the work.
+
+    Getting a chunk is mostly done outside of python, decompressing it in
+    arrow or parsing the VCF, and those let go of the GIL, so the next chunk
+    can be read while the one in hand is being worked on. It costs the memory
+    of the chunks read ahead, one of them by default.
+
+    One thread reads, so this hides the reading behind the work, it does not
+    make the reading itself any faster. For that every thread would have to
+    read its own chunk, which only a source that can seek to a chunk could do.
+    """
+    if not num_chunks_read_ahead:
+        yield from chunks
+        return
+
+    buffer = queue.Queue(maxsize=num_chunks_read_ahead)
+
+    def read_chunks():
+        try:
+            for chunk in chunks:
+                buffer.put(chunk)
+            buffer.put(_NO_MORE_CHUNKS)
+        except queue.ShutDown:
+            # whoever was asking for the chunks gave up before they were over
+            pass
+        except BaseException as error:
+            # the error is raised again in the thread that asked for the chunks
+            try:
+                buffer.put(error)
+            except queue.ShutDown:
+                pass
+
+    thread = threading.Thread(target=read_chunks, daemon=True)
+    thread.start()
+    try:
+        while True:
+            chunk = buffer.get()
+            if chunk is _NO_MORE_CHUNKS:
+                break
+            if isinstance(chunk, BaseException):
+                raise chunk
+            yield chunk
+    finally:
+        # when the chunks are not asked for to the end, the thread reading
+        # them would sit for ever on a queue that nobody empties
+        buffer.shutdown(immediate=True)
 
 
 class _ChunkProcessor:
@@ -40,8 +96,11 @@ class Pipeline:
         variants,
         num_threads: int = 1,
         map_reduce_chunk_size=MAP_REDUCE_CHUNK_SIZE,
+        num_chunks_read_ahead=NUM_CHUNKS_READ_AHEAD,
     ):
         process_chunk = _ChunkProcessor(self.map_functs)
+
+        chunks = _read_chunks_ahead(variants.iter_vars_chunks(), num_chunks_read_ahead)
 
         use_threads = num_threads > 1
 
@@ -52,19 +111,19 @@ class Pipeline:
                 result = threaded_map_reduce.map_reduce(
                     map_fn=process_chunk,
                     reduce_fn=self.reduce_funct,
-                    iterable=variants.iter_vars_chunks(),
+                    iterable=chunks,
                     num_computing_threads=num_threads,
                     chunk_size=map_reduce_chunk_size,
                 )
             else:
                 result = threaded_map_reduce.map(
                     map_fn=process_chunk,
-                    items=variants.iter_vars_chunks(),
+                    items=chunks,
                     num_computing_threads=num_threads,
                     chunk_size=map_reduce_chunk_size,
                 )
         else:
-            processed_chunks = map(process_chunk, variants.iter_vars_chunks())
+            processed_chunks = map(process_chunk, chunks)
             result = processed_chunks
             if self.reduce_funct is not None:
                 result = functools.reduce(

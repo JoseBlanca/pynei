@@ -74,6 +74,13 @@ class Compression(StrEnum):
 
 DEF_VARS_COMPRESSION = Compression.ZSTD
 
+# How many chunks are read ahead of the work, in a thread of their own.
+# Reading a chunk is decompressing it in arrow or parsing a VCF, and both of
+# them let go of the GIL, so the next chunk can be read while the one in hand
+# is worked on. It costs the memory of the chunks read ahead, and one is
+# enough: it hides the reading behind the work, and a second one would only
+# wait. 0 turns it off
+NUM_CHUNKS_READ_AHEAD = 1
 # How many variant chunks one thread takes at a time. It is one because a
 # variant chunk is already a big unit of work, thousands of variants, so
 # handing out several of them at once only leaves the other threads idle:
