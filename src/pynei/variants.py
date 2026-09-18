@@ -193,12 +193,21 @@ class Genotypes:
         # argmax gives the column of the major allele, not the allele itself,
         # and they are different when the alleles found are not 0, 1, 2...
         alleles = allele_counts.columns.to_numpy()
-        major_alleles = alleles[numpy.argmax(allele_counts.values, axis=1)]
-        gts012 = numpy.sum(
-            self.gt_values != major_alleles[:, None, None], axis=2
-        ).astype(GT_012_NUMPY_DTYPE)
+        major_alleles = alleles[numpy.argmax(allele_counts.values, axis=1)][:, None]
 
-        gts012[numpy.any(self.missing_mask, axis=2)] = MISSING_ALLELE
+        # one plane of alleles at a time, the first allele of every genotype,
+        # then the second, and not a reduction along the ploidy axis: numpy
+        # reduces badly along an axis of length two, sum and any over it
+        # took 18 ms each for 5000 variants x 1000 samples, and the same
+        # thing plane by plane takes 2.5 ms
+        gts = self.gt_values
+        gts012 = numpy.zeros(self.shape[:2], dtype=GT_012_NUMPY_DTYPE)
+        gt_is_missing = numpy.zeros(self.shape[:2], dtype=bool)
+        for allele_idx in range(self.ploidy):
+            plane = gts[:, :, allele_idx]
+            gts012 += plane != major_alleles
+            gt_is_missing |= plane == MISSING_ALLELE
+        gts012[gt_is_missing] = MISSING_ALLELE
 
         return gts012
 

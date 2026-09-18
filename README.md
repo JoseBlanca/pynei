@@ -181,13 +181,17 @@ tested in one more pass, with the variance components kept at the null, P3D.
 Every test is one matrix product per chunk, so the four models cost about the
 same. Over 100000 variants:
 
-| samples | kinship 1 thread / 6 | linear | linear mixed | logistic | logistic mixed |
-| ------- | -------------------- | ------ | ------------ | -------- | -------------- |
-| 100     | 0.13 s / 0.04        | 0.14 s | 0.14 s       | 0.52 s   | 0.13 s         |
-| 1000    | 1.33 s / 0.37        | 1.20 s | 1.48 s       | 3.32 s   | 1.51 s         |
+| samples | kinship 1 thread / 6 | linear      | linear mixed | logistic    | logistic mixed |
+| ------- | -------------------- | ----------- | ------------ | ----------- | -------------- |
+| 100     | 0.11 s / 0.04        | 0.08 / 0.07 | 0.08 / 0.10  | 0.45 / 0.14 | 0.07 / 0.04    |
+| 1000    | 1.11 s / 0.32        | 0.58 / 0.19 | 0.88 / 0.44  | 2.69 / 0.84 | 0.95 / 0.54    |
 
-With 5000 samples the null model is what costs, about 8 s of the 9.5 s of a
-linear mixed model over 20000 variants, 6 s of them the eigendecomposition.
+With 5000 samples the null model is what costs: 8 s of the 8.9 s of a linear
+mixed model over 20000 variants, 6 s of them the eigendecomposition, and 25 s
+for the logistic one, whose penalized quasi likelihood inverts a samples x
+samples matrix a few dozen times. plink2 does the plain linear regression of
+the 1000 samples in 0.10 s, because it keeps a genotype in 2 bits and never
+turns it into a float; GMMAT does the mixed models in 1.6 s and 2.2 s.
 The test of a variant with a kinship is quadratic in the samples, and
 `use_grammar_gamma_approx=True` makes it linear, but it is only accurate when
 the structure is weak: with three subpops at an fst of 0.3 the statistic it
