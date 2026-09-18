@@ -5,6 +5,8 @@ import pytest
 import pandas
 import numpy
 
+from .var_generators import create_sample_names
+
 from pynei.variants import VariantsChunk, Variants, Genotypes
 import pynei.config as config
 from pynei.io_vars import write_vars, load_vars, VariantsDir
@@ -28,7 +30,9 @@ class _ChunkFactory:
         gts = numpy.random.randint(
             0, 2, (num_vars, num_samples, ploidy), dtype=config.GT_NUMPY_DTYPE()
         )
-        gts = Genotypes(numpy.ma.array(gts))
+        gts = Genotypes(
+            numpy.ma.array(gts), samples=create_sample_names(numpy.ma.array(gts))
+        )
         self.chunk = VariantsChunk(gts=gts, vars_info=vars_info)
 
     def iter_vars_chunks(self):

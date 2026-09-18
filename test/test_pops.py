@@ -1,4 +1,5 @@
 import numpy
+
 import pytest
 
 from pynei import (
@@ -41,11 +42,12 @@ def test_pops_have_to_be_sequences_of_sample_names():
         _calc_pops_idxs({"pop1": "sample_0"}, SAMPLES)
 
 
-def test_pops_need_samples_in_the_variants():
+def test_variants_can_not_be_built_without_samples():
+    # the pops are given as sample names, so there is nothing to match them
+    # against if the variants have no samples. They are required now
     gts = numpy.random.randint(0, 2, size=(10, 6, 2))
-    variants = Variants.from_gt_array(gts)
-    with pytest.raises(ValueError, match="should have samples"):
-        calc_per_var_distribs(variants, pops=POPS)
+    with pytest.raises(ValueError, match="samples are required"):
+        Variants.from_gt_array(gts, samples=None)
 
 
 @pytest.mark.parametrize("stat", ["obs_het", "maf", "exp_het", "poly_vars_ratio"])

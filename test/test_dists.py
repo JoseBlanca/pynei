@@ -2,6 +2,8 @@ import math
 import random
 
 import numpy
+
+from .var_generators import create_sample_names
 import pandas
 
 from pynei.dists import (
@@ -58,7 +60,11 @@ def test_kosman_2_indis():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    chunk = next(Variants.from_gt_array(gt_array).iter_vars_chunks())
+    chunk = next(
+        Variants.from_gt_array(
+            gt_array, samples=create_sample_names(gt_array)
+        ).iter_vars_chunks()
+    )
     dist, n_snps = _KosmanDistCalculator(chunk).calc_dist_sum_and_n_snps_btw_two_indis(
         0, 1
     )
@@ -70,7 +76,11 @@ def test_kosman_2_indis():
     c = numpy.full(shape=(11, 2), fill_value=1, dtype=numpy.int16)
     d = numpy.full(shape=(11, 2), fill_value=1, dtype=numpy.int16)
     gt_array = numpy.stack((c, d), axis=1)
-    chunk = next(Variants.from_gt_array(gt_array).iter_vars_chunks())
+    chunk = next(
+        Variants.from_gt_array(
+            gt_array, samples=create_sample_names(gt_array)
+        ).iter_vars_chunks()
+    )
     dist, n_snps = _KosmanDistCalculator(chunk).calc_dist_sum_and_n_snps_btw_two_indis(
         0, 1
     )
@@ -80,7 +90,11 @@ def test_kosman_2_indis():
     assert math.isclose(distance, 0.0)
 
     gt_array = numpy.stack((b, d), axis=1)
-    chunk = next(Variants.from_gt_array(gt_array).iter_vars_chunks())
+    chunk = next(
+        Variants.from_gt_array(
+            gt_array, samples=create_sample_names(gt_array)
+        ).iter_vars_chunks()
+    )
     distance = _KosmanDistCalculator(chunk).calc_dist_btw_two_indis(0, 1)
     assert math.isclose(distance, 0.45)
 
@@ -117,7 +131,11 @@ def test_kosman_missing():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    chunk = next(Variants.from_gt_array(gt_array).iter_vars_chunks())
+    chunk = next(
+        Variants.from_gt_array(
+            gt_array, samples=create_sample_names(gt_array)
+        ).iter_vars_chunks()
+    )
     distance_ab = _KosmanDistCalculator(chunk).calc_dist_btw_two_indis(0, 1)
 
     a = numpy.array(
@@ -151,7 +169,11 @@ def test_kosman_missing():
         ]
     )
     gt_array = numpy.stack((a, b), axis=1)
-    chunk = next(Variants.from_gt_array(gt_array).iter_vars_chunks())
+    chunk = next(
+        Variants.from_gt_array(
+            gt_array, samples=create_sample_names(gt_array)
+        ).iter_vars_chunks()
+    )
     distance_cd = _KosmanDistCalculator(chunk).calc_dist_btw_two_indis(0, 1)
 
     assert distance_ab == distance_cd

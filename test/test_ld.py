@@ -18,7 +18,7 @@ from pynei.ld import (
 )
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from pynei.var_filters import filter_by_missing_data
-from .var_generators import generate_vars
+from .var_generators import generate_vars, create_sample_names
 
 
 def create_gts_for_sample(num_samples, geno_freqs):
@@ -42,7 +42,7 @@ def create_gts(num_vars, num_samples, independence_rate, geno_freqs):
             snp_idxs, column_idxs, :
         ]
         gts.append(snp_gts)
-    gts = Genotypes(numpy.array(gts))
+    gts = Genotypes(numpy.array(gts), samples=create_sample_names(numpy.array(gts)))
     return gts
 
 
@@ -256,7 +256,7 @@ def test_pairwiseld():
         [(0, 0), (0, 0), (1, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
         [(0, 0), (0, 1), (0, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
     ]
-    variants = Variants.from_gt_array(gts)
+    variants = Variants.from_gt_array(gts, samples=create_sample_names(gts))
     r2s = [ld_res.r2 for ld_res in iter_rogers_huff_r2(variants)]
     chunk = next(variants.iter_vars_chunks())
     r2_array = _calc_rogers_huff_r2(
@@ -266,7 +266,7 @@ def test_pairwiseld():
     assert numpy.allclose(r2s, r2_array[numpy.triu_indices(r2_array.shape[0], k=1)])
 
     # test using several chunks in the calculation
-    variants = Variants.from_gt_array(gts)
+    variants = Variants.from_gt_array(gts, samples=create_sample_names(gts))
     variants.desired_num_vars_per_chunk = 2
     r2s2 = [ld_res.r2 for ld_res in iter_rogers_huff_r2(variants)]
     assert numpy.allclose(sorted(r2s), sorted(r2s2))
@@ -278,7 +278,9 @@ def test_pairwiseld():
             VAR_TABLE_CHROM_COL: ["1", "1", "2", "2", "2"],
         }
     )
-    chunk = VariantsChunk(Genotypes(gts), vars_info=vars_info)
+    chunk = VariantsChunk(
+        Genotypes(gts, samples=create_sample_names(gts)), vars_info=vars_info
+    )
     chunk_iter_factory = _FromChunkIterFactory(chunk)
     variants = Variants(chunk_iter_factory)
     ld_ress = list(iter_rogers_huff_r2(variants))
@@ -405,7 +407,11 @@ def test_r2_matrix_with_chunks_of_different_sizes():
                     }
                 )
                 yield VariantsChunk(
-                    Genotypes(gt_array[start:stop, ...]), vars_info=vars_info
+                    Genotypes(
+                        gt_array[start:stop, ...],
+                        samples=create_sample_names(gt_array[start:stop, ...]),
+                    ),
+                    vars_info=vars_info,
                 )
                 start = stop
 

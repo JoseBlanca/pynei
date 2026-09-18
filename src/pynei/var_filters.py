@@ -169,10 +169,8 @@ class _SampleFilterIterFactory(_FilterChunkIterFactory):
         # this filter does change the samples, so it cannot just hand over the
         # metadata of the variants being filtered
         metadata = dict(self.in_vars._get_metadata())
-        samples = _normalize_samples(metadata.get("samples"))
-        if samples is not None:
-            samples = tuple(samples[idx] for idx in self.sample_idxs)
-        metadata["samples"] = samples
+        samples = _normalize_samples(metadata["samples"])
+        metadata["samples"] = tuple(samples[idx] for idx in self.sample_idxs)
         metadata["num_samples"] = len(self.sample_idxs)
         return metadata
 

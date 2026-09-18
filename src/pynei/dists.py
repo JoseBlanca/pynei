@@ -288,11 +288,7 @@ def _get_dists(
 
 
 def _get_samples_from_variants(variants):
-    if variants.samples is None:
-        samples = numpy.arange(variants.num_samples)
-    else:
-        samples = numpy.array(variants.samples)
-    return samples
+    return numpy.array(variants.samples)
 
 
 def _select_seed_samples_for_embedding(

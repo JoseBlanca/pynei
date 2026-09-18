@@ -1,5 +1,7 @@
 import pytest
 import numpy
+
+from .var_generators import create_sample_names
 import pandas
 
 from pynei.pca import (
@@ -32,7 +34,7 @@ def test_mat012():
     missing_mask[2, :, :] = True
     gt_array = numpy.ma.array(gt_array, mask=missing_mask)
 
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     chunk = next(variants.iter_vars_chunks())
     with pytest.raises(ValueError):
         _create_012_gt_matrix(chunk)
@@ -46,7 +48,7 @@ def test_mat012():
     gt_array[1, 0, 1] = 3
     gt_array[1, 3, 0] = 3
     gt_array[1, 3, 1] = 3
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     chunk = next(variants.iter_vars_chunks())
     with pytest.raises(ValueError):
         _create_012_gt_matrix(chunk)
@@ -82,7 +84,7 @@ def test_pca_from_variants():
     num_indis = 20
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     do_pca_from_variants(variants)
 
 
@@ -102,7 +104,7 @@ def test_pcoa_from_variants():
     num_indis = 20
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
 
     do_pcoa_from_variants(variants, use_approx_embedding_algorithm=True)
     do_pcoa_from_variants(variants, use_approx_embedding_algorithm=False)
@@ -110,7 +112,7 @@ def test_pcoa_from_variants():
 
 def test_mat012_keeps_the_missing_gts():
     gt_array = numpy.array([[[0, 0], [0, 0], [0, 0], [-1, -1], [1, 1], [0, -1]]])
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     mat012 = create_012_gt_matrix(variants)
     assert numpy.all(mat012 == [[0, 0, 0, MISSING_ALLELE, 2, MISSING_ALLELE]])
 
@@ -167,13 +169,17 @@ def test_mat012_uses_the_small_int_dtype():
     chunk = next(variants.iter_vars_chunks())
     assert chunk.gts.to_012().dtype == config.GT_012_NUMPY_DTYPE
     # the all missing shortcut has to give the same dtype
-    all_missing = Genotypes(numpy.full((2, 3, 2), MISSING_ALLELE))
+    all_missing_gts = numpy.full((2, 3, 2), MISSING_ALLELE)
+    all_missing = Genotypes(
+        all_missing_gts, samples=create_sample_names(all_missing_gts)
+    )
     assert all_missing.to_012().dtype == config.GT_012_NUMPY_DTYPE
 
 
 def test_mat012_with_no_variants():
+    gt_array = numpy.random.randint(0, 2, size=(5, 4, 2))
     variants = filter_by_missing_data(
-        Variants.from_gt_array(numpy.random.randint(0, 2, size=(5, 4, 2))),
+        Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array)),
         max_allowed_missing_rate=-1,
     )
     with pytest.raises(ValueError, match="no variants"):

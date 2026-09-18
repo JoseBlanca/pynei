@@ -18,6 +18,12 @@ from .config import (
 from pynei.gt_counts import _count_alleles_per_var
 
 
+MISSING_SAMPLES_ERROR = (
+    "The samples are required, give them when the variants are created, like in "
+    "Variants.from_gt_array(gts, samples=['sample1', 'sample2'])"
+)
+
+
 def _normalize_samples(samples):
     """The samples are always a tuple, no matter how they were given.
 
@@ -25,7 +31,9 @@ def _normalize_samples(samples):
     so they can be written to json and they do not surprise the user with the
     numpy scalars or the fixed width strings of a numpy array.
     """
-    if samples is None or isinstance(samples, tuple):
+    if samples is None:
+        raise ValueError(MISSING_SAMPLES_ERROR)
+    if isinstance(samples, tuple):
         return samples
     # item() turns the numpy scalars, like the np.str_ of a numpy array of
     # samples, into python ones
@@ -38,7 +46,7 @@ class Genotypes:
     def __init__(
         self,
         gt_array: numpy.ma.masked_array,
-        samples: numpy.ndarray | Sequence[str] | None = None,
+        samples: numpy.ndarray | Sequence[str],
         skip_mask_check=False,
     ):
         if not numpy.ma.isarray(gt_array):
@@ -67,17 +75,16 @@ class Genotypes:
                 )
 
         samples = _normalize_samples(samples)
-        if samples is not None:
-            if len(set(samples)) < len(samples):
-                duplicated_samples = [
-                    sample for sample, count in Counter(samples).items() if count > 1
-                ]
-                raise ValueError(f"Duplicated sample names: {duplicated_samples}")
+        if len(set(samples)) < len(samples):
+            duplicated_samples = [
+                sample for sample, count in Counter(samples).items() if count > 1
+            ]
+            raise ValueError(f"Duplicated sample names: {duplicated_samples}")
 
-            if gt_array.shape[1] != len(samples):
-                raise ValueError(
-                    f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({len(samples)}) do not match"
-                )
+        if gt_array.shape[1] != len(samples):
+            raise ValueError(
+                f"Number of samples in gts ({gt_array.shape[1]}) and number of given samples ({len(samples)}) do not match"
+            )
 
         self._gts = gt_array
         self._samples = samples
@@ -124,17 +131,13 @@ class Genotypes:
         gts.flags.writeable = False
 
         samples = self.samples
-        if samples is not None:
-            if isinstance(index, slice):
-                samples = samples[index]
-            else:
-                samples = tuple(samples[idx] for idx in index)
+        if isinstance(index, slice):
+            samples = samples[index]
+        else:
+            samples = tuple(samples[idx] for idx in index)
         return self.__class__(gt_array=gts, samples=samples)
 
     def filter_samples(self, samples: Sequence[str] | Sequence[int]) -> Self:
-        if self.samples is None:
-            raise ValueError("Cannot get samples from Genotypes without samples")
-
         if not isinstance(samples, SequenceABC):
             raise ValueError("samples must be a sequence")
         index = numpy.where(numpy.isin(self.samples, samples))[0]
@@ -339,7 +342,7 @@ class Variants:
         return self._vars_chunks_iter_factory._get_metadata()
 
     @property
-    def samples(self) -> tuple | None:
+    def samples(self) -> tuple:
         # the factories should already give a tuple, this is here so that the
         # ones written outside of pynei can not break the promise
         return _normalize_samples(self._get_metadata()["samples"])
@@ -356,7 +359,7 @@ class Variants:
     def from_gt_array(
         cls,
         gts: numpy.ndarray | numpy.ma.masked_array,
-        samples: list[str] | None = None,
+        samples: Sequence[str],
         vars_info: pandas.DataFrame | None = None,
     ) -> Self:
         if not numpy.ma.isarray(gts):

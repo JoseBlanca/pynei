@@ -1,4 +1,6 @@
 import numpy
+
+from .var_generators import create_sample_names
 from pynei.variants import Variants
 from pynei.per_var_stats import calc_per_var_distribs
 from pynei.gt_counts import (
@@ -110,7 +112,7 @@ def test_count_alleles_per_var():
     pop_name = pynei.config.DEF_POP_NAME
     numpy.random.seed(42)
     gt_array = numpy.random.randint(0, 2, size=(2, 3, 2))
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     chunk = next(variants.iter_vars_chunks())
     res = _count_alleles_per_var(chunk, calc_freqs=False, min_num_samples=1)
     assert numpy.all(
@@ -119,7 +121,7 @@ def test_count_alleles_per_var():
     assert numpy.all(res["counts"][pop_name]["missing_gts_per_var"] == [0, 0])
 
     gt_array = numpy.random.randint(-1, 2, size=(2, 10, 2))
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     chunk = next(variants.iter_vars_chunks())
     res = _count_alleles_per_var(chunk, calc_freqs=True, min_num_samples=7)
     assert numpy.all(

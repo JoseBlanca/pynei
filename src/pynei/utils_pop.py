@@ -12,9 +12,6 @@ def _calc_pops_idxs(pops: Pops | None, samples):
     if pops is None:
         return {DEF_POP_NAME: slice(None, None)}
 
-    if samples is None:
-        raise ValueError("Variants should have samples defined if pops is not None")
-
     sample_idxs = {sample: idx for idx, sample in enumerate(samples)}
 
     pops_idxs = {}

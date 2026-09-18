@@ -1,6 +1,8 @@
 import itertools
 
 import numpy
+
+from .var_generators import create_sample_names
 import pandas
 import pytest
 
@@ -14,12 +16,12 @@ def test_gts():
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
     gt_array = numpy.ma.array(gt_array)
-    gts = Genotypes(gt_array)
+    gts = Genotypes(gt_array, samples=create_sample_names(gt_array))
     assert gts.num_vars == num_vars
     assert gts.num_samples == num_samples
     assert gts.ploidy == ploidy
     assert numpy.array_equal(gts.gt_values, gt_array)
-    assert gts.samples is None
+    assert gts.samples == create_sample_names(gt_array)
 
     gts = Genotypes(gt_array, samples=["a", "b", "c", "d"])
     vars_slice = [1, 2]
@@ -38,7 +40,7 @@ def test_gts():
 
 def test_gts_to_012():
     gt_array = numpy.array([[[0, -1], [0, 0], [0, 0], [0, 0], [0, 1], [1, 0], [1, 1]]])
-    gts = Genotypes(gt_array)
+    gts = Genotypes(gt_array, samples=create_sample_names(gt_array))
     assert numpy.all(gts.to_012() == [[-1, 0, 0, 0, 1, 1, 2]])
 
 
@@ -47,7 +49,12 @@ def test_chunk():
     num_samples = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
-    chunk = VariantsChunk(gts=Genotypes(numpy.ma.array(gt_array)))
+    chunk = VariantsChunk(
+        gts=Genotypes(
+            numpy.ma.array(gt_array),
+            samples=create_sample_names(numpy.ma.array(gt_array)),
+        )
+    )
     assert chunk.num_vars == num_vars
     assert chunk.num_samples == num_samples
     assert chunk.ploidy == ploidy
@@ -58,7 +65,9 @@ def test_chunk_different_num_rows():
     num_samples = 4
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
-    gts = Genotypes(numpy.ma.array(gt_array))
+    gts = Genotypes(
+        numpy.ma.array(gt_array), samples=create_sample_names(numpy.ma.array(gt_array))
+    )
     vars_info = pandas.DataFrame(
         {
             VAR_TABLE_CHROM_COL: ["chr1", "chr1", "chr2"],
@@ -105,7 +114,7 @@ def test_chunk_size():
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
     gt_array = numpy.ma.array(gt_array)
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
     assert [chunk.num_vars for chunk in chunks] == [10] * 10
@@ -123,7 +132,7 @@ def test_chunk_size():
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
     gt_array = numpy.ma.array(gt_array)
-    variants = Variants.from_gt_array(gt_array)
+    variants = Variants.from_gt_array(gt_array, samples=create_sample_names(gt_array))
     variants.desired_num_vars_per_chunk = 10
     chunks = list(variants.iter_vars_chunks())
     assert [chunk.num_vars for chunk in chunks] == [10, 5]
@@ -132,13 +141,13 @@ def test_chunk_size():
 def test_gts_to_012_alleles_not_starting_at_zero():
     # the major allele is 2, and it is neither the allele 0 nor the first one
     gt_array = numpy.array([[[2, 2], [2, 2], [2, 1], [1, 1], [2, -1]]])
-    gts = Genotypes(gt_array)
+    gts = Genotypes(gt_array, samples=create_sample_names(gt_array))
     assert numpy.all(gts.to_012() == [[0, 0, 1, 2, -1]])
 
 
 def test_gts_to_012_only_missing():
     gt_array = numpy.full((2, 3, 2), -1)
-    gts = Genotypes(gt_array)
+    gts = Genotypes(gt_array, samples=create_sample_names(gt_array))
     assert numpy.all(gts.to_012() == numpy.full((2, 3), -1))
 
 
@@ -181,8 +190,15 @@ def test_samples_are_always_a_tuple_of_python_objects():
         3,
     )
 
-    assert Genotypes(gt_array).samples is None
-    assert Variants.from_gt_array(gt_array).samples is None
+    # the samples are required, they are not guessed
+    with pytest.raises(TypeError):
+        Genotypes(gt_array)
+    with pytest.raises(TypeError):
+        Variants.from_gt_array(gt_array)
+    with pytest.raises(ValueError, match="samples are required"):
+        Genotypes(gt_array, samples=None)
+    with pytest.raises(ValueError, match="samples are required"):
+        Variants.from_gt_array(gt_array, samples=None)
 
 
 def test_genotypes_filter_samples_gives_a_tuple():
@@ -192,8 +208,6 @@ def test_genotypes_filter_samples_gives_a_tuple():
     assert gts.filter_samples(["b", "d"]).samples == ("b", "d")
     assert gts.filter_samples_with_idxs(numpy.array([0, 2])).samples == ("a", "c")
     assert gts.filter_samples_with_idxs(slice(0, 2)).samples == ("a", "b")
-    # the gts of a chunk without samples can still be filtered
-    assert Genotypes(gt_array).filter_samples_with_idxs([0, 2]).samples is None
 
 
 def test_duplicated_samples_are_refused():

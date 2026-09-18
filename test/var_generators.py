@@ -103,6 +103,8 @@ if __name__ == "__main__":
 
 class _FromGtListChunkIterFactory:
     def __init__(self, gts: list[numpy.array], samples=None):
+        if samples is None:
+            samples = create_sample_names(gts[0])
         chunks = [
             VariantsChunk(
                 gts=Genotypes(
@@ -127,3 +129,17 @@ class _FromGtListChunkIterFactory:
 
     def iter_vars_chunks(self) -> Iterator[VariantsChunk]:
         return iter(self._chunks)
+
+
+def create_sample_names(gt_array_or_num_samples):
+    """The sample names for a gt array, or for a number of samples.
+
+    The samples are required now, and most tests do not care what they are
+    called, they only need some names that match the gts.
+    """
+    if isinstance(gt_array_or_num_samples, int):
+        num_samples = gt_array_or_num_samples
+    else:
+        # it can be a numpy array or a list of lists of gts
+        num_samples = numpy.asarray(gt_array_or_num_samples).shape[1]
+    return tuple(f"sample_{idx}" for idx in range(num_samples))

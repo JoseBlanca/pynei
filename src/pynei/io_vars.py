@@ -53,9 +53,7 @@ def write_vars(
         "ploidy": variants.ploidy,
     }
 
-    samples = variants.samples
-    if samples:
-        metadata["samples"] = list(samples)
+    metadata["samples"] = list(variants.samples)
 
     for chunk_idx, chunk in enumerate(variants.iter_vars_chunks()):
         chunk_dir = output_dir / f"chunk_{chunk_idx:04d}"
@@ -116,8 +114,12 @@ class VariantsDir:
         with open(_create_metadata_path(self.dir), "rt") as fhand:
             self.metadata = json.load(fhand)
         samples = self.metadata.get("samples")
-        if samples is not None:
-            samples = tuple(samples)
+        if samples is None:
+            raise ValueError(
+                f"The vars dir has no samples, it was written by a pynei older than "
+                f"the samples being required: {self.dir}"
+            )
+        samples = tuple(samples)
         self.metadata["samples"] = samples
         self.samples = samples
         self.num_samples = self.metadata["num_samples"]
