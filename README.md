@@ -47,21 +47,31 @@ chunk at a time to each thread:
 res = pynei.calc_per_var_distribs(variants, num_threads=4)
 ```
 
-How much it helps depends on the python build. These are the speed ups measured
-on 6 performance cores, over 100000 variants and 100 samples:
+How much it helps depends on how big the chunks are and on the python build,
+because numpy lets go of the GIL while it works on a big array. The bigger the
+chunk, the more of the time is spent inside numpy and the less the GIL gets in
+the way. These are the speed ups of `calc_per_var_distribs` with 6 threads on 6
+performance cores, over the same 400000 variants and 100 samples, changing only
+the size of the chunks:
 
-|                          | 3.14 with the GIL | 3.14 free threaded |
-| ------------------------ | ----------------- | ------------------ |
-| `calc_per_var_distribs`  | 3.2x              | 3.4x               |
-| `create_012_gt_matrix`   | 4.4x              | 4.5x               |
-| `calc_pairwise_kosman_dists` | 0.8x          | 2.3x               |
+| variants per chunk | chunks | 3.14 with the GIL | 3.14 free threaded |
+| ------------------ | ------ | ----------------- | ------------------ |
+| 200                |   2000 | 0.9x              | 4.1x               |
+| 1000               |    400 | 1.4x              | 4.4x               |
+| 5000               |     80 | 3.6x              | 4.3x               |
+| 20000              |     20 | 3.7x              | 3.5x               |
+| 50000              |      8 | 3.0x              | 2.7x               |
 
-The Kosman distances are the exception: they compare the samples pair by pair in
-python, which holds the GIL, so with a normal python build asking for threads
-makes them slower, not faster. Leave them with one thread unless you are running
-a free threaded python.
+With a normal python the chunks have to be big for the threads to pay, because
+what is outside numpy, building the dataframes and the histograms, is done one
+thread at a time. With a free threaded python they pay whatever the size. Both
+of them reach the same time in the end, about 0.21 s for that dataset, and both
+of them lose when there are so few chunks that the threads run out of work.
 
-The chunks have to be big enough for the threads to have something to do. With
-the default of 10000 variants per chunk a dataset of 100000 variants is 10
-chunks, which is enough for a few threads, but a much smaller dataset is not
-worth threading.
+The default of 10000 variants per chunk is already in the good range. A dataset
+small enough to be a couple of chunks is not worth threading at all.
+
+`create_012_gt_matrix` behaves like the table above, it is numpy all the way.
+`calc_pairwise_kosman_dists` is the exception, it compares the samples pair by
+pair in python, so with a normal python build the threads make it slower, 0.8x,
+and it only pays on a free threaded one, 2.3x.
