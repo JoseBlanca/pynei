@@ -151,15 +151,16 @@ def test_gts_to_012_only_missing():
     assert numpy.all(gts.to_012() == numpy.full((2, 3), -1))
 
 
-def test_gts_to_012_with_the_vcf_missing_encoding():
-    # the VCF parser leaves a 0 in the gt values of the missing alleles and
-    # marks them only in the mask, so to_012 has to rely on the mask
+def test_a_masked_array_says_which_alleles_are_missing():
+    # a masked array can be given, and whatever it masks is taken as missing
+    # however the values under the mask were left, here a 0
     gt_array = numpy.array([[[0, 0], [1, 1], [1, 1], [2, 2], [1, 1]]])
     mask = numpy.zeros_like(gt_array, dtype=bool)
     mask[0, 0, :] = True
-    gts = Genotypes(
-        numpy.ma.array(gt_array, mask=mask), samples=list("abcde"), skip_mask_check=True
-    )
+    gts = Genotypes(numpy.ma.array(gt_array, mask=mask), samples=list("abcde"))
+    # the mask is not kept, it is written into the values as MISSING_ALLELE
+    assert numpy.array_equal(gts.gt_values[0, 0], [-1, -1])
+    assert numpy.array_equal(gts.missing_mask, mask)
     # the major allele is 1, sample a is missing and sample d is 2/2
     assert numpy.all(gts.to_012() == [[-1, 0, 0, 2, 0]])
 

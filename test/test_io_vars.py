@@ -69,7 +69,7 @@ def test_vars_io():
         variants = Variants(vars_file)
         chunk = next(variants.iter_vars_chunks())
         assert chunk.gts.num_samples == 10
-        assert numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
+        assert numpy.array_equal(chunk.gts.gt_values, orig_chunk.gts.gt_values)
         assert chunk.vars_info.equals(orig_chunk.vars_info)
 
 
@@ -216,7 +216,7 @@ def test_vcf_to_vars_file_round_trip():
         assert list(variants.samples) == list(orig_chunk.gts.samples)
         assert chunk.alleles.equals(orig_chunk.alleles)
         assert chunk.vars_info.equals(orig_chunk.vars_info)
-        assert numpy.array_equal(chunk.gts.gt_ma_array, orig_chunk.gts.gt_ma_array)
+        assert numpy.array_equal(chunk.gts.gt_values, orig_chunk.gts.gt_values)
         assert numpy.array_equal(chunk.gts.missing_mask, orig_chunk.gts.missing_mask)
         # the mask is not in the file, it is the MISSING_ALLELE in the values
         assert numpy.array_equal(
@@ -287,9 +287,7 @@ def test_a_file_that_is_not_a_vars_file_is_refused():
 def test_loaded_samples_are_a_tuple_and_the_metadata_is_not_aliased():
     chunk_factory = _ChunkFactory(["chrom1", "chrom1"], [1, 2], num_samples=4, ploidy=2)
     chunk_factory.chunk = VariantsChunk(
-        gts=Genotypes(
-            chunk_factory.chunk.gts.gt_ma_array, samples=["a", "b", "c", "d"]
-        ),
+        gts=Genotypes(chunk_factory.chunk.gts.gt_values, samples=["a", "b", "c", "d"]),
         vars_info=chunk_factory.chunk.vars_info,
     )
     chunk_factory.num_samples = 4

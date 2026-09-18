@@ -195,12 +195,9 @@ class VariantsFile:
         batch = self._reader.get_batch(chunk_idx)
 
         gts = _arrow_to_gts(batch.column(GTS_COL), self.num_samples, self.ploidy)
-        # the mask is not written, the missing alleles are already
-        # MISSING_ALLELE in the values, and Genotypes asks for the two to agree
-        gt_array = numpy.ma.masked_array(gts, gts == config.MISSING_ALLELE)
-        chunk_kwargs = {
-            "gts": Genotypes(gt_array, samples=self.samples, skip_mask_check=True)
-        }
+        # no mask is written and none is built, the MISSING_ALLELE in the
+        # values is what says that an allele is missing
+        chunk_kwargs = {"gts": Genotypes(gts, samples=self.samples)}
 
         if self._vars_info_cols:
             chunk_kwargs["vars_info"] = batch.select(self._vars_info_cols).to_pandas()

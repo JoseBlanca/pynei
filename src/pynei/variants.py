@@ -56,17 +56,36 @@ def calc_num_vars_per_chunk(num_samples: int) -> int:
     return max(MIN_NUM_VARS_PER_CHUNK, min(num_vars, MAX_NUM_VARS_PER_CHUNK))
 
 
+def _take_values_out_of_a_masked_array(gt_array):
+    """The values of a masked array, with MISSING_ALLELE where it was masked.
+
+    A masked array is taken because it is a reasonable thing to be given, but
+    it is not kept: MISSING_ALLELE in the values is the only way pynei says
+    that an allele is missing, and a mask beside them would be a second copy
+    of the same thing that could disagree with them.
+    """
+    if not numpy.ma.isarray(gt_array):
+        # anything that is not an array already, a list of lists for instance,
+        # used to be turned into one by the masked array constructor
+        return numpy.asarray(gt_array)
+
+    mask = numpy.ma.getmaskarray(gt_array)
+    values = numpy.ma.getdata(gt_array)
+    if not mask.any():
+        return values
+    values = values.copy()
+    values[mask] = MISSING_ALLELE
+    values.flags.writeable = False
+    return values
+
+
 class Genotypes:
     def __init__(
         self,
-        gt_array: numpy.ma.masked_array,
+        gt_array: numpy.ndarray,
         samples: numpy.ndarray | Sequence[str],
-        skip_mask_check=False,
     ):
-        if not numpy.ma.isarray(gt_array):
-            mask = gt_array == MISSING_ALLELE
-            gt_array = numpy.ma.array(gt_array, mask=mask)
-            skip_mask_check = True
+        gt_array = _take_values_out_of_a_masked_array(gt_array)
 
         if not numpy.issubdtype(gt_array.dtype, numpy.integer):
             raise ValueError("gts must be an integer numpy array")
@@ -78,15 +97,6 @@ class Genotypes:
         if gt_array.flags.writeable:
             gt_array = gt_array.copy()
             gt_array.flags.writeable = False
-
-        if not skip_mask_check:
-            if not numpy.array_equal(
-                numpy.ma.getdata(gt_array) == MISSING_ALLELE,
-                numpy.ma.getmaskarray(gt_array),
-            ):
-                raise ValueError(
-                    f"Missing values should be {MISSING_ALLELE} in the values and masked, but {MISSING_ALLELE} and mask do not match"
-                )
 
         samples = _normalize_samples(samples)
         if len(set(samples)) < len(samples):
@@ -109,15 +119,17 @@ class Genotypes:
 
     @property
     def gt_values(self):
-        return numpy.ma.getdata(self._gts)
-
-    @property
-    def gt_ma_array(self):
         return self._gts
 
     @property
     def missing_mask(self):
-        return numpy.ma.getmaskarray(self._gts)
+        """Which alleles are missing, worked out from the values.
+
+        It is not kept beside them, MISSING_ALLELE in the values is what says
+        that an allele is missing, so a new array is built every time this is
+        asked for. Whoever needs it more than once should hold on to it.
+        """
+        return self._gts == MISSING_ALLELE
 
     @property
     def shape(self):
@@ -136,12 +148,12 @@ class Genotypes:
         return self._gts.shape[2]
 
     def get_vars(self, index):
-        gts = self.gt_ma_array[index, :, :]
+        gts = self._gts[index, :, :]
         gts.flags.writeable = False
         return self.__class__(gt_array=gts, samples=self.samples)
 
     def filter_samples_with_idxs(self, index):
-        gts = self.gt_ma_array[:, index, :]
+        gts = self._gts[:, index, :]
         gts.flags.writeable = False
 
         samples = self.samples
@@ -404,15 +416,10 @@ class Variants:
         samples: Sequence[str],
         vars_info: pandas.DataFrame | None = None,
     ) -> Self:
-        if not numpy.ma.isarray(gts):
-            missing_mask = gts == MISSING_ALLELE
-            gts = numpy.ma.array(gts, mask=missing_mask, fill_value=MISSING_ALLELE)
-            skip_mask_check = True
-        else:
-            skip_mask_check = False
+        """A masked array is accepted, what it masks is taken as missing."""
         return cls(
             vars_chunk_iter_factory=FromGtChunkIterFactory(
-                Genotypes(gts, skip_mask_check=skip_mask_check, samples=samples),
+                Genotypes(gts, samples=samples),
                 vars_info=vars_info,
             )
         )
@@ -435,8 +442,8 @@ def _concat_genotypes(genotypes: Sequence[Genotypes]):
     for gts in genotypes:
         if not numpy.all(gts.samples == genotypes[0].samples):
             raise ValueError("All genotypes must have the same samples")
-        gtss.append(gts.gt_ma_array)
-    gts = numpy.ma.vstack(gtss)
+        gtss.append(gts.gt_values)
+    gts = numpy.vstack(gtss)
     return Genotypes(gt_array=gts, samples=genotypes[0].samples)
 
 

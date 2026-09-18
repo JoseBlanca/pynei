@@ -6,6 +6,7 @@ import math
 import numpy
 import pytest
 
+from pynei.config import MISSING_ALLELE
 from pynei.io_vcf import (
     parse_vcf,
     _guess_vcf_file_kind,
@@ -80,13 +81,17 @@ def test_vcf_parser():
         assert snp["alleles"] == ["G", "A"]
         assert math.isclose(snp["qual"], 29)
         assert numpy.array_equal(snp["gts"], [[0, 0], [3, 4], [5, 6]])
-        assert numpy.all(snp["missing_mask"] == 0)
+        # no allele of the first variant is missing
+        assert not numpy.any(snp["gts"] == MISSING_ALLELE)
 
         snp = variants[1]
-        assert numpy.array_equal(
-            snp["missing_mask"], [[True, False], [False, False], [False, False]]
-        )
+        # the parser says that an allele is missing by writing MISSING_ALLELE
+        # in its value, it keeps no mask beside them
         assert numpy.array_equal(snp["gts"], [[-1, 0], [0, 1], [0, 0]])
+        assert numpy.array_equal(
+            snp["gts"] == MISSING_ALLELE,
+            [[True, False], [False, False], [False, False]],
+        )
         assert math.isnan(snp["qual"])
 
 

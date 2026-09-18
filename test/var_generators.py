@@ -5,7 +5,7 @@ import numpy
 import pandas
 
 from pynei.variants import Genotypes, VariantsChunk, Variants
-from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL, MISSING_ALLELE
+from pynei.config import VAR_TABLE_CHROM_COL, VAR_TABLE_POS_COL
 
 
 class _ChunkIteratorFactory:
@@ -107,13 +107,7 @@ class _FromGtListChunkIterFactory:
             samples = create_sample_names(gts[0])
         chunks = [
             VariantsChunk(
-                gts=Genotypes(
-                    numpy.ma.array(
-                        gt, mask=gts == MISSING_ALLELE, fill_value=MISSING_ALLELE
-                    ),
-                    skip_mask_check=True,
-                    samples=samples,
-                ),
+                gts=Genotypes(gt, samples=samples),
             )
             for gt in gts
         ]

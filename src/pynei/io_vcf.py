@@ -177,26 +177,20 @@ def _parse_var_line(line, num_samples, ploidy=None):
     gts = array.array(
         PYTHON_ARRAY_TYPE, bytearray(num_samples * ploidy * BYTE_SIZE_OF_GT)
     )
-    missing_mask = array.array("b", bytearray(num_samples * ploidy))
     sample_idx = 0
     for gt_str in fields[9:]:
         gt_str = gt_str.split(b":")[gt_fmt_idx]
         if gt_str == ref_gt_str:
             sample_idx += ploidy
             continue
-        for allele_idx, (is_missing, allele) in enumerate(_parse_gt(gt_str)[1]):
-            if is_missing:
-                missing_mask[sample_idx + allele_idx] = 1
+        for allele_idx, (_, allele) in enumerate(_parse_gt(gt_str)[1]):
+            # a missing allele is MISSING_ALLELE, which is not 0, so it is
+            # written like any other one and nothing else has to be kept
             if allele != 0:
                 gts[sample_idx + allele_idx] = allele
         sample_idx += ploidy
     gts = numpy.frombuffer(gts, dtype=config.GT_NUMPY_DTYPE).reshape(
         num_samples, ploidy
-    )
-    missing_mask = (
-        numpy.frombuffer(missing_mask, dtype=numpy.int8)
-        .reshape(num_samples, ploidy)
-        .astype(bool)
     )
     return {
         "chrom": _decode_chrom(fields[0]),
@@ -205,7 +199,6 @@ def _parse_var_line(line, num_samples, ploidy=None):
         "id": _parse_id(fields[2]),
         "qual": _parse_qual(fields[5]),
         "gts": gts,
-        "missing_mask": missing_mask,
     }
 
 
@@ -240,7 +233,6 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
     quals = []
     alleles = []
     gts = []
-    missing_masks = []
     max_num_alleles = 0
     for var in vars_chunk:
         chroms.append(var["chrom"])
@@ -250,7 +242,6 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
         alleles.append(var["alleles"])
         max_num_alleles = max(max_num_alleles, len(var["alleles"]))
         gts.append(var["gts"])
-        missing_masks.append(var["missing_mask"])
     vars_info = pandas.DataFrame(
         {
             config.VAR_TABLE_CHROM_COL: pandas.Series(
@@ -268,9 +259,11 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
         },
     )
     alleles = pandas.Series(alleles, dtype=config.PANDAS_ALLELES_DTYPE)
-    gts = numpy.ma.array(gts, mask=missing_masks, fill_value=config.MISSING_ALLELE)
+    # the parser already puts MISSING_ALLELE in the values of the missing
+    # alleles, which is the only way pynei says that an allele is missing
+    gts = numpy.array(gts, dtype=config.GT_NUMPY_DTYPE)
     gts.flags.writeable = False
-    gts = Genotypes(gts, samples=samples, skip_mask_check=True)
+    gts = Genotypes(gts, samples=samples)
     chunk = VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
     return chunk
 
