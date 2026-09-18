@@ -68,8 +68,41 @@ thread at a time. With a free threaded python they pay whatever the size. Both
 of them reach the same time in the end, about 0.21 s for that dataset, and both
 of them lose when there are so few chunks that the threads run out of work.
 
-The default of 10000 variants per chunk is already in the good range. A dataset
-small enough to be a couple of chunks is not worth threading at all.
+### How big a chunk is
+
+A chunk is sized by the genotypes it holds, variants times samples, and not by
+the variants, because that is what its memory and its work depend on. A fixed
+number of variants means a small chunk for a few samples and a huge one for
+many: 10000 variants is 2 MB of genotypes for 100 samples and 2 GB for 10000.
+
+So the number of variants per chunk is worked out from the number of samples,
+about 5 million genotypes per chunk, between a minimum and a maximum:
+
+| samples | variants per chunk | what decides it  |
+| ------- | ------------------ | ---------------- |
+| 10      | 10000              | the maximum      |
+| 100     | 10000              | the maximum      |
+| 1000    | 5000               | the genotypes    |
+| 10000   | 500                | the genotypes    |
+| 100000  | 100                | the minimum      |
+
+The maximum is there because with few samples the genotypes alone would ask for
+tens of thousands of variants, and then a dataset of 50000 variants would be one
+or two chunks, with nothing to share between the threads. The minimum is there
+because with very many samples it would ask for so few variants that every chunk
+would carry its own overhead for almost nothing.
+
+Over 100000 variants with 6 threads, against the fixed 10000 variants per chunk
+that pynei used before:
+
+| samples | before            | now              |
+| ------- | ----------------- | ---------------- |
+| 100     | 0.24 s, 284 MB    | 0.24 s, 284 MB   |
+| 1000    | 0.86 s, 1289 MB   | 0.71 s, 635 MB   |
+| 10000   | 9.02 s, 12293 MB  | 7.13 s, 1244 MB  |
+
+Give `desired_num_vars_per_chunk` to `vars_from_vcf`, to `load_vars` or to the
+`Variants` itself to say the size yourself.
 
 `create_012_gt_matrix` behaves like the table above, it is numpy all the way.
 `calc_pairwise_kosman_dists` is the exception, it compares the samples pair by

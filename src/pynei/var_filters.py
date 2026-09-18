@@ -100,7 +100,7 @@ def filter_by_missing_data(
     chunk_factory = _MissingFilterIterFactory(variants, filter_chunk_by_missing)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants._desired_num_vars_per_chunk,
     )
 
 
@@ -123,7 +123,7 @@ def filter_by_maf(variants: Variants, max_allowed_maf) -> Variants:
     chunk_factory = _MafFilterIterFactory(variants, filter_chunk)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants._desired_num_vars_per_chunk,
     )
 
 
@@ -148,7 +148,7 @@ def filter_by_obs_het(variants: Variants, max_allowed_obs_het: float):
     chunk_factory = _ObsHetFilterIterFactory(variants, filter_chunk)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants._desired_num_vars_per_chunk,
     )
 
 
@@ -187,7 +187,7 @@ def filter_samples(
     chunk_factory = _SampleFilterIterFactory(variants, filter_samples, sample_idxs)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants._desired_num_vars_per_chunk,
     )
 
 
@@ -264,5 +264,5 @@ def filter_by_ld_and_maf(
     chunk_factory = _FilterLDChunkIterFactory(variants, filter_chunk_by_ld)
     return Variants(
         vars_chunk_iter_factory=chunk_factory,
-        desired_num_vars_per_chunk=variants.desired_num_vars_per_chunk,
+        desired_num_vars_per_chunk=variants._desired_num_vars_per_chunk,
     )

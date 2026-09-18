@@ -26,7 +26,20 @@ GT_NUMPY_DTYPE = {2: numpy.int16, 4: numpy.int32}[BYTE_SIZE_OF_INT]
 GT_012_NUMPY_DTYPE = numpy.int8
 
 PANDAS_STRING_STORAGE = "pyarrow"
-DEF_NUM_VARS_PER_CHUNK = 10000
+# How big a chunk is, counted in genotypes, variants x samples, and not in
+# variants, because that is what the memory and the work of a chunk depend on.
+# A fixed number of variants means a small chunk for a few samples and a huge
+# one for many: 10000 variants is 2 MB of gts for 100 samples and 2 GB for
+# 10000. 5 million genotypes is about 100 MB of gts, and up to there the peak
+# memory hardly moves, it is what the calculations allocate on top that shows.
+DEF_NUM_GTS_PER_CHUNK = 5_000_000
+# with few samples the genotype budget would ask for so many variants that a
+# normal dataset would be two or three chunks, and then there is nothing to
+# share between the threads. It also bounds what the vars info of a chunk costs
+MAX_NUM_VARS_PER_CHUNK = 10_000
+# and with very many samples it would ask for so few variants that every chunk
+# would carry its own python overhead for almost nothing
+MIN_NUM_VARS_PER_CHUNK = 100
 LINEAL = "lineal"
 LOGARITHMIC = "logarithmic"
 # a StrEnum, so that a member is equal to the string it was built from and

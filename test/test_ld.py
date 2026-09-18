@@ -243,6 +243,14 @@ class _FromChunkIterFactory:
     ):
         self._chunks = [chunk]
 
+    def _get_metadata(self):
+        chunk = self._chunks[0]
+        return {
+            "samples": chunk.gts.samples,
+            "num_samples": chunk.num_samples,
+            "ploidy": chunk.ploidy,
+        }
+
     def iter_vars_chunks(self):
         return iter(self._chunks)
 

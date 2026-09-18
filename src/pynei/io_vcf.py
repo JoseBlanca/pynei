@@ -8,7 +8,12 @@ import itertools
 import numpy
 import pandas
 
-from pynei.variants import Variants, VariantsChunk, Genotypes
+from pynei.variants import (
+    Variants,
+    VariantsChunk,
+    Genotypes,
+    calc_num_vars_per_chunk,
+)
 from pynei import config
 from pynei.config import (
     MISSING_ALLELE,
@@ -269,14 +274,16 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
 
 
 class _FromVCFChunkIterFactory:
-    def __init__(
-        self, vcf_path, desired_num_vars_per_chunk=config.DEF_NUM_VARS_PER_CHUNK
-    ):
-        self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
+    def __init__(self, vcf_path, desired_num_vars_per_chunk: int | None = None):
         self.vcf_path = vcf_path
         res = parse_vcf(self.vcf_path)
         self.metadata = res["metadata"]
         res["fhand"].close()
+        if desired_num_vars_per_chunk is None:
+            desired_num_vars_per_chunk = calc_num_vars_per_chunk(
+                self.metadata["num_samples"]
+            )
+        self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
 
     def iter_vars_chunks(self):
         res = parse_vcf(self.vcf_path)
@@ -295,7 +302,7 @@ class _FromVCFChunkIterFactory:
 
 
 def vars_from_vcf(
-    vcf_path: Path, desired_num_vars_per_chunk: int = config.DEF_NUM_VARS_PER_CHUNK
+    vcf_path: Path, desired_num_vars_per_chunk: int | None = None
 ) -> Variants:
     chunk_factory = _FromVCFChunkIterFactory(
         vcf_path, desired_num_vars_per_chunk=desired_num_vars_per_chunk

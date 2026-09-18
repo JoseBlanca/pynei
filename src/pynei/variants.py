@@ -10,7 +10,9 @@ from .config import (
     PANDAS_STRING_STORAGE,
     PANDAS_FLOAT_DTYPE,
     PANDAS_INT_DTYPE,
-    DEF_NUM_VARS_PER_CHUNK,
+    DEF_NUM_GTS_PER_CHUNK,
+    MAX_NUM_VARS_PER_CHUNK,
+    MIN_NUM_VARS_PER_CHUNK,
     GT_012_NUMPY_DTYPE,
     MISSING_ALLELE,
     DEF_POP_NAME,
@@ -40,6 +42,18 @@ def _normalize_samples(samples):
     return tuple(
         sample.item() if hasattr(sample, "item") else sample for sample in samples
     )
+
+
+def calc_num_vars_per_chunk(num_samples: int) -> int:
+    """How many variants a chunk should have for the given number of samples.
+
+    The chunks are sized by the genotypes they hold, not by the variants,
+    because that is what the memory and the work depend on.
+    """
+    num_vars = DEF_NUM_GTS_PER_CHUNK // max(num_samples, 1)
+    # few samples ask for many variants, and then the cap is what decides,
+    # many samples ask for few, and then it is the minimum
+    return max(MIN_NUM_VARS_PER_CHUNK, min(num_vars, MAX_NUM_VARS_PER_CHUNK))
 
 
 class Genotypes:
@@ -317,13 +331,25 @@ class Variants:
     def __init__(
         self,
         vars_chunk_iter_factory: ChunkIterFactory,
-        desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
+        desired_num_vars_per_chunk: int | None = None,
     ):
-        self.desired_num_vars_per_chunk = desired_num_vars_per_chunk
+        self._desired_num_vars_per_chunk = desired_num_vars_per_chunk
         self._vars_chunks_iter_factory = vars_chunk_iter_factory
-        self._samples = None
-        self._num_samples = None
-        self._ploidy = None
+
+    @property
+    def desired_num_vars_per_chunk(self) -> int:
+        """How many variants every chunk will have.
+
+        When it was not set it is worked out from the number of samples, so
+        that a chunk holds about DEF_NUM_GTS_PER_CHUNK genotypes.
+        """
+        if self._desired_num_vars_per_chunk is not None:
+            return self._desired_num_vars_per_chunk
+        return calc_num_vars_per_chunk(self.num_samples)
+
+    @desired_num_vars_per_chunk.setter
+    def desired_num_vars_per_chunk(self, num_vars: int | None):
+        self._desired_num_vars_per_chunk = num_vars
 
     def _get_orig_vars_iter(self):
         return self._vars_chunks_iter_factory.iter_vars_chunks()
@@ -379,7 +405,7 @@ class Variants:
     def from_vars(
         cls,
         variants,
-        desired_num_vars_per_chunk=DEF_NUM_VARS_PER_CHUNK,
+        desired_num_vars_per_chunk: int | None = None,
         desired_num_chunks=None,
     ):
         return cls(
