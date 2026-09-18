@@ -1,5 +1,5 @@
+from dataclasses import dataclass
 from functools import partial
-import itertools
 from typing import Sequence
 
 import numpy
@@ -46,26 +46,40 @@ class _MissingFilterIterFactory(_FilterChunkIterFactory):
     kind = "missing_data"
 
 
-def gather_filtering_stats(variants: Variants, stats=None):
-    if stats is None:
-        stats = {}  # stats by filter kind
+@dataclass(frozen=True)
+class FilteringStats:
+    """How many variants one kind of filter saw and let through."""
+
+    vars_processed: int
+    "How many variants the filter was given"
+
+    vars_kept: int
+    "How many of them it let through"
+
+
+def _accumulate_filtering_stats(variants, stats):
     chunk_factory = variants._vars_chunks_iter_factory
     if isinstance(chunk_factory, _FilterChunkIterFactory):
-        filter_kind = chunk_factory.kind
-        if filter_kind not in stats:
-            stats[filter_kind] = {"vars_processed": 0, "vars_kept": 0}
-        stats[filter_kind]["vars_processed"] += chunk_factory.num_vars_processed
-        stats[filter_kind]["vars_kept"] += chunk_factory.num_vars_kept
+        processed, kept = stats.get(chunk_factory.kind, (0, 0))
+        stats[chunk_factory.kind] = (
+            processed + int(chunk_factory.num_vars_processed),
+            kept + int(chunk_factory.num_vars_kept),
+        )
     if hasattr(chunk_factory, "in_vars"):
-        gather_filtering_stats(chunk_factory.in_vars, stats)
-
-    for filtering_stats in stats.values():
-        if "vars_kept" in filtering_stats and hasattr(
-            filtering_stats["vars_kept"], "item"
-        ):
-            # this is to convert from np.int64 to native python int
-            filtering_stats["vars_kept"] = filtering_stats["vars_kept"].item()
+        _accumulate_filtering_stats(chunk_factory.in_vars, stats)
     return stats
+
+
+def gather_filtering_stats(variants: Variants) -> dict[str, FilteringStats]:
+    """It returns, for every kind of filter applied, how many variants it saw.
+
+    The counts are the ones of the last pass over the variants, they are not
+    accumulated over the passes.
+    """
+    return {
+        kind: FilteringStats(vars_processed=processed, vars_kept=kept)
+        for kind, (processed, kept) in _accumulate_filtering_stats(variants, {}).items()
+    }
 
 
 def _filter_chunk_by_missing(chunk, max_missing_rate):

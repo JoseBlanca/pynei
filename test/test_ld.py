@@ -318,8 +318,8 @@ def test_pairwiseld():
     time3 = time.time()
     # print(time2 - time1)
     # print(time3 - time2)
-    assert numpy.allclose(res["dists_in_bp"][0, :3], [0, 100, 200])
-    assert res["r2"].shape == (num_vars * num_chroms, num_vars * num_chroms)
+    assert numpy.allclose(res.dists_in_bp[0, :3], [0, 100, 200])
+    assert res.r2.shape == (num_vars * num_chroms, num_vars * num_chroms)
 
 
 def test_ld_vs_dist():
@@ -369,10 +369,15 @@ def test_ld_for_pops_with_filtered_vars():
 
     samples = variants.samples
     pops = {"pop1": samples[:10], "pop2": samples[10:]}
-    res = get_ld_and_dist_for_pops(variants, pops=pops, max_dist=100000)
+    # no var is filtered out by its maf, so both pops see the very same vars
+    # and they have to give the same number of measures. Before the fix the
+    # second pop only got the vars of the first chunk
+    res = get_ld_and_dist_for_pops(
+        variants, pops=pops, max_dist=100000, max_allowed_maf=1
+    )
     num_measures_per_pop = {pop: len(list(lds)) for pop, lds in res.items()}
     assert num_measures_per_pop["pop1"] == num_measures_per_pop["pop2"]
-    assert num_measures_per_pop["pop1"] > 0
+    assert num_measures_per_pop["pop1"] == num_vars * (num_vars - 1)
 
 
 def test_r2_matrix_with_chunks_of_different_sizes():
@@ -411,6 +416,6 @@ def test_r2_matrix_with_chunks_of_different_sizes():
         res = calc_rogers_huff_r2_matrix(
             _GivenChunksVars(chunk_sizes), check_no_mafs_above=None
         )
-        assert res["r2"].shape == (num_vars, num_vars)
-        assert numpy.allclose(res["dists_in_bp"], expected["dists_in_bp"])
-        assert numpy.allclose(numpy.abs(res["r2"]), numpy.abs(expected["r2"]))
+        assert res.r2.shape == (num_vars, num_vars)
+        assert numpy.allclose(res.dists_in_bp, expected.dists_in_bp)
+        assert numpy.allclose(numpy.abs(res.r2), numpy.abs(expected.r2))

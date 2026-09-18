@@ -66,7 +66,7 @@ def test_pca():
         [0.71956635, -0.24438178, -0.14212637, -0.63427274],
         [0.26128628, -0.12350962, -0.80144925, 0.52359713],
     ]
-    princomps = pca["princomps"].values
+    princomps = pca.princomps.values
     for idx in range(princomps.shape[0]):
         assert numpy.allclose(
             expected_princomps[idx], princomps[idx]
@@ -87,7 +87,7 @@ def test_pcoa():
     dists = [0.2, 0.3, 0.9, 0.9, 0.1, 0.8, 0.7, 0.7, 0.8, 0.2]
     dists = Distances(numpy.array(dists), names=["i1", "i2", "i3", "i4", "i5"])
     res = do_pcoa(dists)
-    projections = res["projections"]
+    projections = res.projections
     assert abs(projections.loc["i1", "PC0"] - projections.loc["i2", "PC0"]) < abs(
         projections.loc["i1", "PC0"] - projections.loc["i4", "PC0"]
     )
@@ -128,7 +128,7 @@ def test_pca_vars_with_missing_gts():
     samples += [f"pop2_{idx}" for idx in range(num_samples_pop2)]
     variants = Variants.from_gt_array(gt_array, samples=samples)
 
-    projections = do_pca_with_vars(variants)["projections"]
+    projections = do_pca_with_vars(variants).projections
     pc1 = projections.iloc[:, 0]
     sample_with_missing = pc1.iloc[0]
     pop1 = pc1.iloc[1:num_samples_pop1].mean()

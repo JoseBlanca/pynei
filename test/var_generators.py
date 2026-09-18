@@ -27,6 +27,19 @@ class _ChunkIteratorFactory:
         self.chunk_size = chunk_size
         self.ploidy = 2
 
+        # the chunks are built once, here, and not on every call to
+        # iter_vars_chunks, so that going over the variants twice gives the
+        # same variants, and not a fresh set of random genotypes
+        chrom_names = [f"chrom_{idx}" for idx in range(1, self.num_chroms + 1)]
+        stop = self.num_vars_per_chrom * self.dist_between_vars + 1
+        poss_in_chrom = numpy.arange(1, stop, self.dist_between_vars)
+        self._num_vars = self.num_chroms * self.num_vars_per_chrom
+        self._chroms = numpy.repeat(chrom_names, self.num_vars_per_chrom)
+        self._poss = numpy.tile(poss_in_chrom, self.num_chroms)
+        self._gt_array = self.create_gts_funct(
+            num_vars=self._num_vars, num_samples=self.num_samples
+        ).gt_values
+
     def _get_metadata(self):
         return {
             "samples": self.samples,
@@ -35,25 +48,15 @@ class _ChunkIteratorFactory:
         }
 
     def iter_vars_chunks(self):
-        chrom_names = [f"chrom_{idx}" for idx in range(1, self.num_chroms + 1)]
-        stop = self.num_vars_per_chrom * self.dist_between_vars + 1
-        poss_in_chrom = numpy.arange(1, stop, self.dist_between_vars)
-        num_vars = self.num_chroms * self.num_vars_per_chrom
-        chroms = numpy.repeat(chrom_names, self.num_vars_per_chrom)
-        poss = numpy.tile(poss_in_chrom, self.num_chroms)
-        gt_array = self.create_gts_funct(
-            num_vars=num_vars, num_samples=self.num_samples
-        ).gt_values
-
-        for chunk_start in range(0, num_vars, self.chunk_size):
+        for chunk_start in range(0, self._num_vars, self.chunk_size):
             chunk_stop = chunk_start + self.chunk_size
             chunk_gts = Genotypes(
-                gt_array[chunk_start:chunk_stop, ...], samples=self.samples
+                self._gt_array[chunk_start:chunk_stop, ...], samples=self.samples
             )
             vars_info = pandas.DataFrame(
                 {
-                    VAR_TABLE_CHROM_COL: chroms[chunk_start:chunk_stop],
-                    VAR_TABLE_POS_COL: poss[chunk_start:chunk_stop],
+                    VAR_TABLE_CHROM_COL: self._chroms[chunk_start:chunk_stop],
+                    VAR_TABLE_POS_COL: self._poss[chunk_start:chunk_stop],
                 }
             )
             chunk = VariantsChunk(chunk_gts, vars_info=vars_info)

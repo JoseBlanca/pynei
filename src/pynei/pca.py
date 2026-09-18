@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from functools import partial
 
 import numpy
@@ -7,6 +8,31 @@ from pynei.gt_counts import _count_alleles_per_var
 from pynei.config import MISSING_ALLELE
 from pynei.pipeline import Pipeline
 from pynei.dists import Distances, calc_pairwise_kosman_dists
+
+
+@dataclass(frozen=True)
+class PCAResult:
+    """The result of a Principal Component Analysis."""
+
+    projections: pandas.DataFrame
+    "The coordinates of every sample in the PCA space, one column per PC"
+
+    explained_variance_percent: pandas.Series
+    "The percentage of the variance that every PC explains"
+
+    princomps: pandas.DataFrame
+    "The principal components, one row per PC and one column per trait"
+
+
+@dataclass(frozen=True)
+class PCoAResult:
+    """The result of a Principal Coordinate Analysis."""
+
+    projections: pandas.DataFrame
+    "The coordinates of every sample in the PCoA space, one column per PC"
+
+    explained_variance_percent: pandas.Series
+    "The percentage of the variance that every PC explains"
 
 
 def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
@@ -75,15 +101,15 @@ def do_pca(data: pandas.DataFrame, center_data=True, standarize_data=True):
     pcnts = eig_vals / eig_vals.sum() * 100.0
     projections = numpy.dot(prin_comps, data.T).T
 
-    return {
-        "projections": pandas.DataFrame(
+    return PCAResult(
+        projections=pandas.DataFrame(
             projections, index=sample_names, columns=prin_comps_names
         ),
-        "explained_variance (%)": pandas.Series(pcnts, index=prin_comps_names),
-        "princomps": pandas.DataFrame(
+        explained_variance_percent=pandas.Series(pcnts, index=prin_comps_names),
+        princomps=pandas.DataFrame(
             prin_comps, index=prin_comps_names, columns=trait_names
         ),
-    }
+    )
 
 
 def _fill_missing_gts_with_var_mean(mat012):
@@ -186,12 +212,12 @@ def do_pcoa(dists: Distances):
     projections = numpy.array(projections)
     prin_comps_names = _create_pc_names(projections.shape[1])
 
-    return {
-        "projections": pandas.DataFrame(
+    return PCoAResult(
+        projections=pandas.DataFrame(
             projections, index=sample_names, columns=prin_comps_names
         ),
-        "explained_variance (%)": pandas.Series(pcnts, index=prin_comps_names),
-    }
+        explained_variance_percent=pandas.Series(pcnts, index=prin_comps_names),
+    )
 
 
 def do_pcoa_with_vars(

@@ -62,7 +62,7 @@ def test_pops_need_samples_in_the_variants():
 )
 def test_every_stat_takes_the_same_pops(calc_stats):
     res = calc_stats(_create_vars(), pops=POPS)
-    per_pop = res["mean"] if "mean" in res else res["num_poly"]
+    per_pop = res.mean if hasattr(res, "mean") else res.num_poly
     assert sorted(per_pop.index) == ["pop1", "pop2"]
 
     with pytest.raises(ValueError, match="not in the variants"):

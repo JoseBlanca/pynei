@@ -42,7 +42,7 @@ def test_hist_range_can_be_given():
     res = calc_obs_het_stats_per_var(
         variants, hist_kwargs={"num_bins": 2, "range": (0, 0.5)}
     )
-    assert numpy.allclose(res["hist_bin_edges"], [0, 0.25, 0.5])
+    assert numpy.allclose(res.hist_bin_edges, [0, 0.25, 0.5])
 
 
 def test_logarithmic_bins_span_the_given_range():

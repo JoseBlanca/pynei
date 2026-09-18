@@ -52,9 +52,9 @@ def test_obs_het_stats():
 
     pop_name = pynei.config.DEF_POP_NAME
     res = calc_obs_het_stats_per_var(variants, hist_kwargs={"num_bins": 4})
-    assert numpy.allclose(res["mean"].loc[pop_name], [0.5])
-    assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
-    assert all(res["hist_counts"][pop_name] == [0, 1, 1, 0])
+    assert numpy.allclose(res.mean.loc[pop_name], [0.5])
+    assert numpy.allclose(res.hist_bin_edges, [0.0, 0.25, 0.5, 0.75, 1.0])
+    assert all(res.hist_counts[pop_name] == [0, 1, 1, 0])
 
 
 def test_count_alleles_per_var():
@@ -162,9 +162,9 @@ def test_maf_stats():
         variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
     pop_name = pynei.config.DEF_POP_NAME
-    assert numpy.allclose(res["mean"].loc[pop_name], [0.535714])
-    assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
-    assert all(res["hist_counts"][pop_name] == [0, 0, 2, 0])
+    assert numpy.allclose(res.mean.loc[pop_name], [0.535714])
+    assert numpy.allclose(res.hist_bin_edges, [0.0, 0.25, 0.5, 0.75, 1.0])
+    assert all(res.hist_counts[pop_name] == [0, 0, 2, 0])
 
     numpy.random.seed(42)
     gt_array = numpy.random.randint(-1, 3, size=(3, 10, 2))
@@ -187,6 +187,6 @@ def test_maf_stats():
         pops={"pop1": list(range(5)), "pop2": list(range(4, 10))},
     )
     expected = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0]
-    assert numpy.all(numpy.equal(res["hist_counts"]["pop1"], expected))
+    assert numpy.all(numpy.equal(res.hist_counts["pop1"], expected))
     expected = numpy.linspace(0, 1, 21)
-    assert numpy.allclose(list(res["hist_bin_edges"]), expected)
+    assert numpy.allclose(list(res.hist_bin_edges), expected)

@@ -1,4 +1,5 @@
 import itertools
+from dataclasses import dataclass
 from functools import partial
 from collections import namedtuple
 from enum import Enum
@@ -43,6 +44,19 @@ def _chunks_are_close(chunk_pair, max_dist):
     return False
 
 
+@dataclass(frozen=True)
+class R2Matrix:
+    """The Rogers Huff r2 between every pair of variants."""
+
+    r2: numpy.ndarray
+    "A square vars x vars matrix with the r2 of every pair of variants"
+
+    dists_in_bp: numpy.ndarray | None = None
+    """A square vars x vars matrix with the distance between every pair of
+    variants, nan when they are in different chroms. It is None when the
+    variants carry no chrom and pos."""
+
+
 def calc_rogers_huff_r2_matrix(
     variants, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
@@ -51,7 +65,6 @@ def calc_rogers_huff_r2_matrix(
     chunks = list(variants.iter_vars_chunks())
     tot_num_vars = sum(chunk.num_vars for chunk in chunks)
     r2 = numpy.full((tot_num_vars, tot_num_vars), numpy.nan)
-    res = {"r2": r2}
     dists = None
     row_start = 0
     for chunk1 in chunks:
@@ -120,13 +133,12 @@ def calc_rogers_huff_r2_matrix(
 
                     if dists is None:
                         dists = numpy.full((tot_num_vars, tot_num_vars), numpy.nan)
-                        res["dists_in_bp"] = dists
                     dists[row_start:row_end, col_start:col_end] = this_dists
 
             col_start = col_end
         row_start = row_end
 
-    return res
+    return R2Matrix(r2=r2, dists_in_bp=dists)
 
 
 LDResult = namedtuple(
@@ -240,8 +252,8 @@ def get_ld_and_dist_for_pops(
             res = calc_rogers_huff_r2_matrix(
                 pop_vars, max_dist=max_dist, check_no_mafs_above=None
             )
-            r2 = res["r2"].flat
-            dists = res["dists_in_bp"].flat
+            r2 = res.r2.flat
+            dists = res.dists_in_bp.flat
             mask = ~numpy.isnan(dists)
             r2 = r2[mask]
             dists = dists[mask]

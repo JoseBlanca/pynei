@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from functools import partial
 
 import numpy
@@ -5,6 +6,24 @@ import pandas
 
 from pynei.config import BinType
 from pynei.pipeline import Pipeline
+
+
+@dataclass(frozen=True)
+class StatsDistrib:
+    """The distribution, per pop, of a statistic calculated for every variant.
+
+    The per variant values are not kept, because they do not fit in memory for
+    a big dataset, what is kept is their mean and their histogram.
+    """
+
+    mean: pandas.Series
+    "The mean of the statistic over all the variants, one value per pop"
+
+    hist_bin_edges: numpy.ndarray
+    "The edges of the histogram bins, there is one edge more than bins"
+
+    hist_counts: pandas.DataFrame
+    "How many variants fell in each histogram bin, one column per pop"
 
 
 def _prepare_bins(
@@ -98,8 +117,8 @@ def _calc_stats_per_var(
     accumulated_result = pipeline.map_and_reduce(variants)
 
     mean = accumulated_result["sum_per_pop"] / accumulated_result["total_num_rows"]
-    return {
-        "mean": mean,
-        "hist_bin_edges": hist_bins_edges,
-        "hist_counts": accumulated_result["hist_counts"],
-    }
+    return StatsDistrib(
+        mean=mean,
+        hist_bin_edges=hist_bins_edges,
+        hist_counts=accumulated_result["hist_counts"],
+    )

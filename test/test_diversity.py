@@ -41,9 +41,9 @@ def test_calc_exp_het():
     res = calc_exp_het_stats_per_var(
         variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
-    assert numpy.allclose(res["mean"].loc[DEF_POP_NAME], [0.422619])
-    assert numpy.allclose(res["hist_bin_edges"], [0.0, 0.25, 0.5, 0.75, 1.0])
-    assert all(res["hist_counts"][DEF_POP_NAME] == [0, 2, 0, 0])
+    assert numpy.allclose(res.mean.loc[DEF_POP_NAME], [0.422619])
+    assert numpy.allclose(res.hist_bin_edges, [0.0, 0.25, 0.5, 0.75, 1.0])
+    assert all(res.hist_counts[DEF_POP_NAME] == [0, 2, 0, 0])
 
 
 def test_poly_vars_ratio():
@@ -58,6 +58,7 @@ def test_poly_vars_ratio():
         min_num_samples=3,
         pops={"pop1": list(range(5)), "pop2": list(range(5, 10))},
     )
+    # the per chunk function is internal, it still gives a dict back
     assert numpy.allclose(res["num_variable"].values, [3, 2])
     assert numpy.allclose(res["num_poly"].values, [1, 1])
 
@@ -68,5 +69,5 @@ def test_poly_vars_ratio():
         min_num_samples=3,
         pops={"pop1": list(range(5)), "pop2": list(range(5, 10))},
     )
-    assert numpy.allclose(res["poly_ratio_over_variables"].values, [0.333333, 0.5])
-    assert numpy.allclose(res["poly_ratio"].values, [0.333333, 0.5])
+    assert numpy.allclose(res.poly_ratio_over_variables.values, [0.333333, 0.5])
+    assert numpy.allclose(res.poly_ratio.values, [0.333333, 0.5])

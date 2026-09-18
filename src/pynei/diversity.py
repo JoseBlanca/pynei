@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from functools import partial
 
 import numpy
@@ -115,6 +116,26 @@ def calc_exp_het_stats_per_var(
     )
 
 
+@dataclass(frozen=True)
+class PolyVarsStats:
+    """How many of the variants are polymorphic, per pop."""
+
+    num_poly: pandas.Series
+    "How many variants have a major allele freq below the poly threshold"
+
+    poly_ratio: pandas.Series
+    "num_poly over the variants that have enough data"
+
+    poly_ratio_over_variables: pandas.Series
+    "num_poly over the variants that are not fixed"
+
+    num_variable: pandas.Series
+    "How many variants have a major allele freq below 1"
+
+    tot_num_variants_with_data: pandas.Series
+    "How many variants had enough data to be counted"
+
+
 def _calc_num_poly_vars(
     chunk,
     poly_threshold=DEF_POLY_THRESHOLD,
@@ -181,11 +202,10 @@ def calc_poly_vars_ratio_per_var(
     poly_ratio = num_poly / num_not_nas
     poly_ratio2 = num_poly / num_variable
 
-    res = {
-        "num_poly": num_poly,
-        "poly_ratio": poly_ratio,
-        "poly_ratio_over_variables": poly_ratio2,
-        "num_variable": num_variable,
-        "tot_num_variants_with_data": num_not_nas,
-    }
-    return res
+    return PolyVarsStats(
+        num_poly=num_poly,
+        poly_ratio=poly_ratio,
+        poly_ratio_over_variables=poly_ratio2,
+        num_variable=num_variable,
+        tot_num_variants_with_data=num_not_nas,
+    )

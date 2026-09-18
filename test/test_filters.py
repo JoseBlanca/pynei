@@ -7,6 +7,7 @@ from pynei.var_filters import (
     filter_by_maf,
     filter_by_obs_het,
     gather_filtering_stats,
+    FilteringStats,
     filter_samples,
     filter_by_ld_and_maf,
 )
@@ -55,7 +56,7 @@ def test_filter_mafs():
     assert numpy.all(gts[[False, True, False], ...] == filtered_gts)
 
     stats = gather_filtering_stats(variants)
-    assert stats == {"maf": {"vars_processed": 3, "vars_kept": 1}}
+    assert stats == {"maf": FilteringStats(vars_processed=3, vars_kept=1)}
 
 
 def test_filter_obs_het():
@@ -207,7 +208,7 @@ def test_filter_ld():
         assert numpy.all(gts[[True, False, False, True, False], :] == filtered_gts)
 
         stats = gather_filtering_stats(variants)
-        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
+        assert stats == {"ld_and_maf": FilteringStats(vars_processed=5, vars_kept=2)}
 
 
 def test_get_metadata():
@@ -267,7 +268,7 @@ def test_filtered_vars_can_be_iterated_more_than_once():
 
         # the stats are the ones of the last pass, they are not accumulated
         stats = gather_filtering_stats(variants)
-        assert stats == {"missing_data": {"vars_processed": 4, "vars_kept": 4}}
+        assert stats == {"missing_data": FilteringStats(vars_processed=4, vars_kept=4)}
 
 
 def test_chained_filters_can_be_iterated_more_than_once():
@@ -282,8 +283,8 @@ def test_chained_filters_can_be_iterated_more_than_once():
 
         stats = gather_filtering_stats(variants)
         assert stats == {
-            "missing_data": {"vars_processed": 4, "vars_kept": 4},
-            "maf": {"vars_processed": 4, "vars_kept": 4},
+            "missing_data": FilteringStats(vars_processed=4, vars_kept=4),
+            "maf": FilteringStats(vars_processed=4, vars_kept=4),
         }
 
 
@@ -310,7 +311,7 @@ def test_ld_filtered_vars_can_be_iterated_more_than_once():
         assert numpy.all(_stack_gts(variants) == expected)
 
         stats = gather_filtering_stats(variants)
-        assert stats == {"ld_and_maf": {"vars_processed": 5, "vars_kept": 2}}
+        assert stats == {"ld_and_maf": FilteringStats(vars_processed=5, vars_kept=2)}
 
 
 def test_asking_for_the_metadata_does_not_consume_the_vars():
@@ -362,9 +363,9 @@ def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
         )
         res1 = calc_obs_het_stats_per_var(variants)
         res2 = calc_obs_het_stats_per_var(variants)
-        assert res1["hist_counts"].sum().iloc[0] == 4
-        assert numpy.all(res1["hist_counts"] == res2["hist_counts"])
-        assert numpy.allclose(res1["mean"], res2["mean"])
+        assert res1.hist_counts.sum().iloc[0] == 4
+        assert numpy.all(res1.hist_counts == res2.hist_counts)
+        assert numpy.allclose(res1.mean, res2.mean)
 
 
 def test_filtered_samples_are_a_tuple():
