@@ -3,10 +3,7 @@ import pytest
 
 from pynei import (
     Variants,
-    calc_obs_het_per_var_distrib,
-    calc_maf_per_var_distrib,
-    calc_exp_het_per_var_distrib,
-    calc_poly_vars_ratio,
+    calc_per_var_distribs,
     calc_jost_dest_pop_dists,
     calc_ld_and_dist_per_pop,
 )
@@ -48,25 +45,17 @@ def test_pops_need_samples_in_the_variants():
     gts = numpy.random.randint(0, 2, size=(10, 6, 2))
     variants = Variants.from_gt_array(gts)
     with pytest.raises(ValueError, match="should have samples"):
-        calc_obs_het_per_var_distrib(variants, pops=POPS)
+        calc_per_var_distribs(variants, pops=POPS)
 
 
-@pytest.mark.parametrize(
-    "calc_stats",
-    [
-        calc_obs_het_per_var_distrib,
-        calc_maf_per_var_distrib,
-        calc_exp_het_per_var_distrib,
-        calc_poly_vars_ratio,
-    ],
-)
-def test_every_stat_takes_the_same_pops(calc_stats):
-    res = calc_stats(_create_vars(), pops=POPS)
+@pytest.mark.parametrize("stat", ["obs_het", "maf", "exp_het", "poly_vars_ratio"])
+def test_every_stat_takes_the_same_pops(stat):
+    res = getattr(calc_per_var_distribs(_create_vars(), stats=stat, pops=POPS), stat)
     per_pop = res.mean if hasattr(res, "mean") else res.num_poly
     assert sorted(per_pop.index) == ["pop1", "pop2"]
 
     with pytest.raises(ValueError, match="not in the variants"):
-        calc_stats(_create_vars(), pops={"pop1": ["nope"]})
+        calc_per_var_distribs(_create_vars(), stats=stat, pops={"pop1": ["nope"]})
 
 
 def test_jost_dest_takes_the_same_pops():

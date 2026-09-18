@@ -1,15 +1,16 @@
-from functools import partial
-
 import numpy
 import pandas
 
 from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME, MISSING_ALLELE
-from pynei.utils_pop import Pops, _calc_pops_idxs
-from pynei.utils_stats import _calc_per_var_distrib
+
+# The functions in this module take a cache: a dict that lives for one chunk
+# and that is shared by every calculation done on it, so that what one of them
+# needs and another one has already worked out, like the allele counts or the
+# het mask, is done once per chunk.
 
 
-def _calc_gt_is_missing(chunk, partial_res=None):
-    res = {} if partial_res is None else partial_res
+def _calc_gt_is_missing(chunk, cache=None):
+    res = {} if cache is None else cache
     if "gt_is_missing" in res:
         return res
 
@@ -18,12 +19,12 @@ def _calc_gt_is_missing(chunk, partial_res=None):
     return res
 
 
-def _calc_gt_is_het(chunk, partial_res=None):
-    res = {} if partial_res is None else partial_res
+def _calc_gt_is_het(chunk, cache=None):
+    res = {} if cache is None else cache
     if "gt_is_het" in res:
         return res
 
-    res = _calc_gt_is_missing(chunk, partial_res=res)
+    res = _calc_gt_is_missing(chunk, cache=res)
     gt_is_missing = res["gt_is_missing"]
 
     gt_array = chunk.gts.gt_values
@@ -34,8 +35,8 @@ def _calc_gt_is_het(chunk, partial_res=None):
     return res
 
 
-def _calc_obs_het_per_var(chunk, pops):
-    res = _calc_gt_is_het(chunk)
+def _calc_obs_het_per_var(chunk, pops, cache=None):
+    res = _calc_gt_is_het(chunk, cache=cache)
     gt_is_het = res["gt_is_het"]
     gt_is_missing = res["gt_is_missing"]
 
@@ -60,19 +61,13 @@ def _calc_obs_het_per_var(chunk, pops):
     }
 
 
-def calc_obs_het_per_var_distrib(
-    variants,
-    pops: Pops | None = None,
-    hist_kwargs=None,
-):
-    pops = _calc_pops_idxs(pops, variants.samples)
-
-    return _calc_per_var_distrib(
-        variants=variants,
-        calc_stats_for_chunk=partial(_calc_obs_het_per_var, pops=pops),
-        get_stats_for_chunk_result=lambda x: x["obs_het_per_var"],
-        hist_kwargs=hist_kwargs,
-        default_hist_range=(0, 1),
+def _pops_key(pops):
+    # a hashable version of the pops idxs, to use them in a cache key
+    if pops is None:
+        return None
+    return tuple(
+        (pop, idxs if isinstance(idxs, slice) else tuple(idxs))
+        for pop, idxs in pops.items()
     )
 
 
@@ -82,7 +77,20 @@ def _count_alleles_per_var(
     pops: dict[str, list[int]] | None = None,
     alleles=None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+    cache=None,
 ):
+    if cache is not None:
+        key = ("allele_counts", calc_freqs, _pops_key(pops), min_num_samples)
+        if key not in cache:
+            cache[key] = _count_alleles_per_var(
+                chunk,
+                calc_freqs=calc_freqs,
+                pops=pops,
+                alleles=alleles,
+                min_num_samples=min_num_samples,
+            )
+        return cache[key]
+
     gts = chunk.gts.gt_values
     missing_mask = chunk.gts.missing_mask
 
@@ -143,6 +151,7 @@ def _calc_maf_per_var(
     chunk,
     pops,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+    cache=None,
 ):
     res = _count_alleles_per_var(
         chunk,
@@ -150,6 +159,7 @@ def _calc_maf_per_var(
         alleles=None,
         calc_freqs=True,
         min_num_samples=min_num_samples,
+        cache=cache,
     )
     major_allele_freqs = {}
     for pop, pop_res in res["counts"].items():
@@ -157,23 +167,3 @@ def _calc_maf_per_var(
         major_allele_freqs[pop] = pop_allelic_freqs.max(axis=1)
     major_allele_freqs = pandas.DataFrame(major_allele_freqs)
     return {"major_allele_freqs_per_var": major_allele_freqs}
-
-
-def calc_maf_per_var_distrib(
-    variants,
-    pops: Pops | None = None,
-    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
-    hist_kwargs=None,
-):
-    samples = variants.samples
-    pops = _calc_pops_idxs(pops, samples)
-
-    return _calc_per_var_distrib(
-        variants=variants,
-        calc_stats_for_chunk=partial(
-            _calc_maf_per_var, pops=pops, min_num_samples=min_num_samples
-        ),
-        get_stats_for_chunk_result=lambda x: x["major_allele_freqs_per_var"],
-        hist_kwargs=hist_kwargs,
-        default_hist_range=(0, 1),
-    )

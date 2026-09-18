@@ -1,11 +1,7 @@
 from pynei.variants import Variants
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
-from pynei.gt_counts import calc_obs_het_per_var_distrib, calc_maf_per_var_distrib
-from pynei.diversity import (
-    PolyVarsStats,
-    calc_exp_het_per_var_distrib,
-    calc_poly_vars_ratio,
-)
+from pynei.diversity import PolyVarsStats
+from pynei.per_var_stats import PerVarDistribs, PerVarStat, calc_per_var_distribs
 from pynei.utils_stats import StatsDistrib
 from pynei.pca import (
     PCAResult,
@@ -47,21 +43,20 @@ __all__ = [
     "LDResult",
     "PCAResult",
     "PCoAResult",
+    "PerVarDistribs",
+    "PerVarStat",
     "PolyVarsStats",
     "R2Matrix",
     "StatsDistrib",
     "VAR_TABLE_CHROM_COL",
     "VAR_TABLE_POS_COL",
     "Variants",
-    "calc_exp_het_per_var_distrib",
     "calc_jost_dest_pop_dists",
     "calc_ld_and_dist_per_pop",
-    "calc_maf_per_var_distrib",
-    "calc_obs_het_per_var_distrib",
     "calc_pairwise_euclidean_dists",
     "calc_pairwise_kosman_dists",
     "calc_per_sample_stats",
-    "calc_poly_vars_ratio",
+    "calc_per_var_distribs",
     "calc_rogers_huff_r2_matrix",
     "do_pca",
     "do_pca_from_variants",

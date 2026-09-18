@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from functools import partial
 
 import numpy
 import pandas
@@ -9,13 +8,11 @@ from pynei.config import (
     DEF_POLY_THRESHOLD,
 )
 from pynei.gt_counts import _count_alleles_per_var, _calc_maf_per_var
-from pynei.utils_pop import Pops, _calc_pops_idxs
-from pynei.utils_stats import _calc_per_var_distrib
-from pynei.pipeline import Pipeline
+from pynei.utils_pop import Pops
 
 
 def _calc_exp_het_per_var(
-    chunk, pops, min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT, ploidy=None
+    chunk, pops, min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT, ploidy=None, cache=None
 ):
     if ploidy is None:
         ploidy = chunk.ploidy
@@ -25,6 +22,7 @@ def _calc_exp_het_per_var(
         pops=pops,
         calc_freqs=True,
         min_num_samples=min_num_samples,
+        cache=cache,
     )
 
     sorted_pops = sorted(pops.keys())
@@ -44,7 +42,7 @@ def _calc_exp_het_per_var(
 
 
 def _calc_unbiased_exp_het_per_var(
-    chunk, pops, min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT, ploidy=None
+    chunk, pops, min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT, ploidy=None, cache=None
 ):
     "Calculated using Unbiased Heterozygosity (Codom Data) Genalex formula"
     if ploidy is None:
@@ -55,6 +53,7 @@ def _calc_unbiased_exp_het_per_var(
         pops=pops,
         min_num_samples=min_num_samples,
         ploidy=ploidy,
+        cache=cache,
     )
     exp_het = res["exp_het"]
 
@@ -86,36 +85,6 @@ def _calc_unbiased_exp_het_per_var(
     }
 
 
-def calc_exp_het_per_var_distrib(
-    variants,
-    pops: Pops | None = None,
-    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
-    ploidy=None,
-    hist_kwargs=None,
-    unbiased=True,
-):
-    samples = variants.samples
-    pops = _calc_pops_idxs(pops, samples)
-
-    if unbiased:
-        calc_het_funct = _calc_unbiased_exp_het_per_var
-    else:
-        calc_het_funct = _calc_exp_het_per_var
-
-    return _calc_per_var_distrib(
-        variants=variants,
-        calc_stats_for_chunk=partial(
-            calc_het_funct,
-            pops=pops,
-            min_num_samples=min_num_samples,
-            ploidy=ploidy,
-        ),
-        get_stats_for_chunk_result=lambda x: x["exp_het"],
-        hist_kwargs=hist_kwargs,
-        default_hist_range=(0, 1),
-    )
-
-
 @dataclass(frozen=True)
 class PolyVarsStats:
     """How many of the variants are polymorphic, per pop."""
@@ -141,11 +110,13 @@ def _calc_num_poly_vars(
     poly_threshold=DEF_POLY_THRESHOLD,
     pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+    cache=None,
 ):
     res = _calc_maf_per_var(
         chunk,
         pops=pops,
         min_num_samples=min_num_samples,
+        cache=cache,
     )
     mafs = res["major_allele_freqs_per_var"]
 
@@ -158,54 +129,3 @@ def _calc_num_poly_vars(
         "tot_num_variants_with_data": num_not_nas,
     }
     return res
-
-
-def _accumulate_pop_sums(
-    accumulated_result: pandas.DataFrame | None, next_result: pandas.DataFrame
-):
-    if accumulated_result is None:
-        accumulated_result = next_result
-    else:
-        accumulated_result = {
-            param: accumulated_result[param] + values
-            for param, values in next_result.items()
-        }
-    return accumulated_result
-
-
-def calc_poly_vars_ratio(
-    variants,
-    poly_threshold=DEF_POLY_THRESHOLD,
-    pops: Pops | None = None,
-    min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
-):
-    samples = variants.samples
-    pops = _calc_pops_idxs(pops, samples)
-
-    calc_num_poly_vars = partial(
-        _calc_num_poly_vars,
-        poly_threshold=poly_threshold,
-        pops=pops,
-        min_num_samples=min_num_samples,
-    )
-
-    pipeline = Pipeline(
-        map_functs=[calc_num_poly_vars],
-        reduce_funct=_accumulate_pop_sums,
-    )
-    res = pipeline.map_and_reduce(variants)
-
-    num_poly = res["num_poly"]
-    num_variable = res["num_variable"]
-    num_not_nas = res["tot_num_variants_with_data"]
-
-    poly_ratio = num_poly / num_not_nas
-    poly_ratio2 = num_poly / num_variable
-
-    return PolyVarsStats(
-        num_poly=num_poly,
-        poly_ratio=poly_ratio,
-        poly_ratio_over_variables=poly_ratio2,
-        num_variable=num_variable,
-        tot_num_variants_with_data=num_not_nas,
-    )

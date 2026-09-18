@@ -1,12 +1,7 @@
 import numpy
 import pytest
 
-from pynei import (
-    Variants,
-    calc_obs_het_per_var_distrib,
-    calc_maf_per_var_distrib,
-    calc_exp_het_per_var_distrib,
-)
+from pynei import Variants, calc_per_var_distribs
 from pynei.config import BinType, LINEAL, LOGARITHMIC
 from pynei.utils_stats import _prepare_bins
 
@@ -17,31 +12,23 @@ def _create_vars():
     return Variants.from_gt_array(gts, samples=[f"s{idx}" for idx in range(25)])
 
 
-@pytest.mark.parametrize(
-    "calc_stats",
-    [
-        calc_obs_het_per_var_distrib,
-        calc_maf_per_var_distrib,
-        calc_exp_het_per_var_distrib,
-    ],
-)
-def test_hist_kwargs_is_not_modified(calc_stats):
+def test_hist_kwargs_is_not_modified():
     variants = _create_vars()
 
     hist_kwargs = {}
-    calc_stats(variants, hist_kwargs=hist_kwargs)
+    calc_per_var_distribs(variants, hist_kwargs=hist_kwargs)
     assert hist_kwargs == {}
 
     hist_kwargs = {"num_bins": 4}
-    calc_stats(variants, hist_kwargs=hist_kwargs)
+    calc_per_var_distribs(variants, hist_kwargs=hist_kwargs)
     assert hist_kwargs == {"num_bins": 4}
 
 
 def test_hist_range_can_be_given():
     variants = _create_vars()
-    res = calc_obs_het_per_var_distrib(
-        variants, hist_kwargs={"num_bins": 2, "range": (0, 0.5)}
-    )
+    res = calc_per_var_distribs(
+        variants, stats="obs_het", hist_kwargs={"num_bins": 2, "range": (0, 0.5)}
+    ).obs_het
     assert numpy.allclose(res.hist_bin_edges, [0, 0.25, 0.5])
 
 

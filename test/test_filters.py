@@ -11,7 +11,7 @@ from pynei.var_filters import (
     filter_samples,
     filter_by_ld_and_maf,
 )
-from pynei.gt_counts import calc_obs_het_per_var_distrib
+from pynei import calc_per_var_distribs
 from .var_generators import _FromGtListChunkIterFactory
 
 
@@ -361,8 +361,8 @@ def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
         variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        res1 = calc_obs_het_per_var_distrib(variants)
-        res2 = calc_obs_het_per_var_distrib(variants)
+        res1 = calc_per_var_distribs(variants, stats="obs_het").obs_het
+        res2 = calc_per_var_distribs(variants, stats="obs_het").obs_het
         assert res1.hist_counts.sum().iloc[0] == 4
         assert numpy.all(res1.hist_counts == res2.hist_counts)
         assert numpy.allclose(res1.mean, res2.mean)

@@ -1,12 +1,11 @@
 import numpy
 
 from pynei.variants import Variants
+from pynei.per_var_stats import calc_per_var_distribs
 from pynei.diversity import (
     _calc_exp_het_per_var,
     _calc_unbiased_exp_het_per_var,
-    calc_exp_het_per_var_distrib,
     _calc_num_poly_vars,
-    calc_poly_vars_ratio,
 )
 from pynei.config import DEF_POP_NAME
 
@@ -38,9 +37,9 @@ def test_calc_exp_het():
     expected = [[0.83333333, 0.0], [0.0, 0.66666667], [numpy.nan, numpy.nan]]
     assert numpy.allclose(res["exp_het"].values, expected, equal_nan=True)
 
-    res = calc_exp_het_per_var_distrib(
-        variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
-    )
+    res = calc_per_var_distribs(
+        variants, stats="exp_het", hist_kwargs={"num_bins": 4}, min_num_samples=1
+    ).exp_het
     assert numpy.allclose(res.mean.loc[DEF_POP_NAME], [0.422619])
     assert numpy.allclose(res.hist_bin_edges, [0.0, 0.25, 0.5, 0.75, 1.0])
     assert all(res.hist_counts[DEF_POP_NAME] == [0, 2, 0, 0])
@@ -63,11 +62,12 @@ def test_poly_vars_ratio():
     assert numpy.allclose(res["num_poly"].values, [1, 1])
 
     variants.desired_num_vars_per_chunk = 2
-    res = calc_poly_vars_ratio(
+    res = calc_per_var_distribs(
         variants,
+        stats="poly_vars_ratio",
         poly_threshold=0.51,
         min_num_samples=3,
         pops={"pop1": list(range(5)), "pop2": list(range(5, 10))},
-    )
+    ).poly_vars_ratio
     assert numpy.allclose(res.poly_ratio_over_variables.values, [0.333333, 0.5])
     assert numpy.allclose(res.poly_ratio.values, [0.333333, 0.5])

@@ -1,11 +1,9 @@
 from dataclasses import dataclass
-from functools import partial
 
 import numpy
 import pandas
 
 from pynei.config import BinType
-from pynei.pipeline import Pipeline
 
 
 @dataclass(frozen=True)
@@ -60,65 +58,34 @@ def _prepare_bins(
     return bins
 
 
-def _collect_stats_from_pop_dframes(
-    accumulated_result, next_result: pandas.DataFrame, hist_bins_edges: numpy.array
-):
-    if accumulated_result is None:
-        accumulated_result = {
-            "sum_per_pop": pandas.Series(
-                numpy.zeros((next_result.shape[1]), dtype=int),
-                index=next_result.columns,
-            ),
-            "total_num_rows": pandas.Series(
-                numpy.zeros((next_result.shape[1]), dtype=int),
-                index=next_result.columns,
-            ),
-            "hist_counts": None,
-        }
+def _summarize_pop_dframe(stat_per_var: pandas.DataFrame, hist_bin_edges):
+    """The contribution of one chunk to a StatsDistrib.
 
-    accumulated_result["sum_per_pop"] += next_result.sum(axis=0)
-    accumulated_result["total_num_rows"] += next_result.shape[
-        0
-    ] - next_result.isna().sum(axis=0)
-
-    this_counts = {}
-    for pop, pop_stats in next_result.items():
-        this_counts[pop] = numpy.histogram(pop_stats, bins=hist_bins_edges)[0]
-    this_counts = pandas.DataFrame(this_counts)
-
-    if accumulated_result["hist_counts"] is None:
-        accumulated_result["hist_counts"] = this_counts
-    else:
-        accumulated_result["hist_counts"] += this_counts
-
-    return accumulated_result
+    stat_per_var has one row per variant and one column per pop.
+    """
+    hist_counts = {
+        pop: numpy.histogram(pop_stats, bins=hist_bin_edges)[0]
+        for pop, pop_stats in stat_per_var.items()
+    }
+    return {
+        "sum_per_pop": stat_per_var.sum(axis=0),
+        "num_vars_with_data": stat_per_var.notna().sum(axis=0),
+        "hist_counts": pandas.DataFrame(hist_counts),
+    }
 
 
-def _calc_per_var_distrib(
-    variants,
-    calc_stats_for_chunk,
-    get_stats_for_chunk_result,
-    hist_kwargs=None,
-    default_hist_range: tuple[float, float] = (0, 1),
-):
-    hist_bins_edges = _prepare_bins(hist_kwargs, default_range=default_hist_range)
+def _add_distrib_contributions(accumulated, contribution):
+    return {
+        "sum_per_pop": accumulated["sum_per_pop"] + contribution["sum_per_pop"],
+        "num_vars_with_data": accumulated["num_vars_with_data"]
+        + contribution["num_vars_with_data"],
+        "hist_counts": accumulated["hist_counts"] + contribution["hist_counts"],
+    }
 
-    collect_stats_from_pop_dframes = partial(
-        _collect_stats_from_pop_dframes, hist_bins_edges=hist_bins_edges
-    )
 
-    pipeline = Pipeline(
-        map_functs=[
-            calc_stats_for_chunk,
-            get_stats_for_chunk_result,
-        ],
-        reduce_funct=collect_stats_from_pop_dframes,
-    )
-    accumulated_result = pipeline.map_and_reduce(variants)
-
-    mean = accumulated_result["sum_per_pop"] / accumulated_result["total_num_rows"]
+def _finish_distrib(accumulated, hist_bin_edges) -> StatsDistrib:
     return StatsDistrib(
-        mean=mean,
-        hist_bin_edges=hist_bins_edges,
-        hist_counts=accumulated_result["hist_counts"],
+        mean=accumulated["sum_per_pop"] / accumulated["num_vars_with_data"],
+        hist_bin_edges=hist_bin_edges,
+        hist_counts=accumulated["hist_counts"],
     )

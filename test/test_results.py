@@ -12,10 +12,7 @@ from pynei import (
     PolyVarsStats,
     R2Matrix,
     StatsDistrib,
-    calc_exp_het_per_var_distrib,
-    calc_maf_per_var_distrib,
-    calc_obs_het_per_var_distrib,
-    calc_poly_vars_ratio,
+    calc_per_var_distribs,
     calc_rogers_huff_r2_matrix,
     do_pca_from_variants,
     do_pcoa_from_variants,
@@ -52,16 +49,10 @@ def test_the_results_are_frozen_dataclasses_with_documented_fields(result_class)
         setattr(instance, fields[0].name, None)
 
 
-@pytest.mark.parametrize(
-    "calc_stats",
-    [
-        calc_obs_het_per_var_distrib,
-        calc_maf_per_var_distrib,
-        calc_exp_het_per_var_distrib,
-    ],
-)
-def test_the_per_var_distribs(calc_stats):
-    res = calc_stats(_create_vars(), hist_kwargs={"num_bins": 4})
+@pytest.mark.parametrize("stat", ["obs_het", "maf", "exp_het"])
+def test_the_per_var_distribs(stat):
+    res = calc_per_var_distribs(_create_vars(), stats=stat, hist_kwargs={"num_bins": 4})
+    res = getattr(res, stat)
     assert isinstance(res, StatsDistrib)
     assert res.mean.shape == (1,)
     assert res.hist_bin_edges.shape == (5,)
@@ -72,7 +63,9 @@ def test_the_per_var_distribs(calc_stats):
 
 
 def test_poly_vars_ratio_gives_a_poly_vars_stats():
-    res = calc_poly_vars_ratio(_create_vars(), min_num_samples=1)
+    res = calc_per_var_distribs(
+        _create_vars(), stats="poly_vars_ratio", min_num_samples=1
+    ).poly_vars_ratio
     assert isinstance(res, PolyVarsStats)
     assert res.poly_ratio.shape == (1,)
 
