@@ -4,6 +4,7 @@ from pathlib import Path
 import math
 
 import numpy
+import pytest
 
 from pynei.io_vcf import (
     parse_vcf,
@@ -32,7 +33,7 @@ VCF_45 = b"""##fileformat=VCFv4.5
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">
 ##FORMAT=<ID=HQ,Number=2,Type=Integer,Description=\"Haplotype Quality\">
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tNA00001\tNA00002\tNA00003
-20\t14370\trs6054257\tG\tA\t29\tPASS\tNS=3;DP=14;AF=0.5;DB;H2\tGT:GQ:DP:HQ\t0|0:48:1:51,51\t3|4:48:8:51,51\t5/6000:43:5:.,.
+20\t14370\trs6054257\tG\tA\t29\tPASS\tNS=3;DP=14;AF=0.5;DB;H2\tGT:GQ:DP:HQ\t0|0:48:1:51,51\t3|4:48:8:51,51\t5/6:43:5:.,.
 20\t17330\t.\tT\tA\t.\tq10\tNS=3;DP=11;AF=0.017\tGT:GQ:DP:HQ\t.|0:49:3:58,50\t0|1:3:5:65,3\t0/0:41:3
 20\t1110696\trs6040355\tA\tG,T\t67\tPASS\tNS=2;DP=10;AF=0.333,0.667;AA=T;DB\tGT:GQ:DP:HQ\t1|2:21:6:23,27\t2|1:2:0:18,2\t2/2:35:4
 20\t1230237\t.\tT\t.\t47\tPASS\tNS=3;DP=13;AA=T\tGT:GQ:DP:HQ\t0|0:54:7:56,60\t0|0:48:4:51,51\t0/0:61:2
@@ -78,7 +79,7 @@ def test_vcf_parser():
         assert snp["pos"] == 14370
         assert snp["alleles"] == ["G", "A"]
         assert math.isclose(snp["qual"], 29)
-        assert numpy.array_equal(snp["gts"], [[0, 0], [3, 4], [5, 6000]])
+        assert numpy.array_equal(snp["gts"], [[0, 0], [3, 4], [5, 6]])
         assert numpy.all(snp["missing_mask"] == 0)
 
         snp = variants[1]
@@ -101,7 +102,7 @@ def test_vars_from_vcf():
         assert chunk.vars_info.loc[0, "chrom"] == "20"
         assert chunk.vars_info.loc[0, "pos"] == 14370
         gts = [
-            [[0, 0], [3, 4], [5, 6000]],
+            [[0, 0], [3, 4], [5, 6]],
             [[-1, 0], [0, 1], [0, 0]],
             [[1, 2], [2, 1], [2, 2]],
             [[0, 0], [0, 0], [0, 0]],
@@ -155,3 +156,25 @@ def test_vcf_with_windows_line_ends():
         assert numpy.array_equal(
             chunk.gts.gt_values[0], numpy.array([[0, 0], [0, 1], [-1, -1]])
         )
+
+
+def test_an_allele_over_the_limit_is_refused():
+    """A genotype is one byte, so the alleles go up to MAX_ALLELE_NUMBER. No
+    real variant has 128 alleles, and paying four bytes for every genotype to
+    make room for them is not worth it."""
+    vcf = VCF_GT_ONLY.replace(b"./.\t1/1\t0/1", b"0/128\t1/1\t0/1")
+    with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
+        tmp.write(vcf)
+        tmp.flush()
+        with pytest.raises(NotImplementedError, match="128"):
+            next(vars_from_vcf(Path(tmp.name)).iter_vars_chunks())
+
+
+def test_the_alleles_are_one_row_per_variant():
+    with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
+        tmp.write(VCF_45)
+        tmp.flush()
+        chunk = next(vars_from_vcf(Path(tmp.name)).iter_vars_chunks())
+        # the third variant has A as reference and G and T as alternatives
+        assert chunk.alleles.iloc[2] == ["A", "G", "T"]
+        assert chunk.alleles.iloc[0] == ["G", "A"]

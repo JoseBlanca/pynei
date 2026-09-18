@@ -289,7 +289,8 @@ class VariantsChunk:
         else:
             vars_info = None
         if self.alleles is not None:
-            alleles = self.alleles.iloc[index, ...]
+            # the alleles are a Series, one row is the alleles of one variant
+            alleles = self.alleles.iloc[index]
         else:
             alleles = None
         return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)

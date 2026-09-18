@@ -3,6 +3,7 @@ import array
 
 import pandas
 import numpy
+import pyarrow
 
 MIN_NUM_GENOTYPES_FOR_POP_STAT = 20
 DEF_POLY_THRESHOLD = 0.95
@@ -17,15 +18,23 @@ PANDAS_INT_DTYPE = pandas.Int32Dtype
 PANDAS_POS_DTYPE = pandas.UInt64Dtype
 PANDAS_STR_DTYPE = pandas.StringDtype
 
-PYTHON_ARRAY_TYPE = "i"
-BYTE_SIZE_OF_INT = array.array(PYTHON_ARRAY_TYPE, [0]).itemsize
-MAX_ALLELE_NUMBER = {1: 127, 2: 32767, 4: 2147483647}[BYTE_SIZE_OF_INT]
-GT_NUMPY_DTYPE = {2: numpy.int16, 4: numpy.int32}[BYTE_SIZE_OF_INT]
+# A genotype is one byte. An allele goes from 0 to MAX_ALLELE_NUMBER and a
+# missing one is MISSING_ALLELE, so an int8 holds 128 alleles, far more than
+# any real variant has. It used to be an int32, which cost four times the
+# memory and four times the file to make room for alleles that nobody has.
+PYTHON_ARRAY_TYPE = "b"
+BYTE_SIZE_OF_GT = array.array(PYTHON_ARRAY_TYPE, [0]).itemsize
+GT_NUMPY_DTYPE = numpy.int8
+MAX_ALLELE_NUMBER = int(numpy.iinfo(GT_NUMPY_DTYPE).max)
 # The 012 gts only hold the number of non major alleles of a genotype, 0 to the
 # ploidy, or MISSING_ALLELE, so the smallest int is enough for any real ploidy
 GT_012_NUMPY_DTYPE = numpy.int8
 
 PANDAS_STRING_STORAGE = "pyarrow"
+# One row of the alleles table is the alleles of one variant, ["A", "T", "G"],
+# and not one column per allele index, because every chunk of a vars file
+# shares one schema however many alleles its variants happen to have
+PANDAS_ALLELES_DTYPE = pandas.ArrowDtype(pyarrow.list_(pyarrow.large_string()))
 # How big a chunk is, counted in genotypes, variants x samples, and not in
 # variants, because that is what the memory and the work of a chunk depend on.
 # A fixed number of variants means a small chunk for a few samples and a huge
@@ -49,7 +58,21 @@ DEF_POP_NAME = "pop"
 MIN_NUM_SAMPLES_FOR_POP_STAT = 20
 MISSING_ALLELE = -1
 
-DEF_NUMPY_GZIP_COMPRESSION_LEVEL = 4
+
+class Compression(StrEnum):
+    """How the genotypes of a vars file are compressed.
+
+    ZSTD makes the file about six times smaller and NONE makes it about five
+    times faster to read. In a browser there is no disk, the file is held in
+    memory and it has to be downloaded first, so there ZSTD is the one that
+    works.
+    """
+
+    ZSTD = "zstd"
+    NONE = "none"
+
+
+DEF_VARS_COMPRESSION = Compression.ZSTD
 
 # How many variant chunks one thread takes at a time. It is one because a
 # variant chunk is already a big unit of work, thousands of variants, so

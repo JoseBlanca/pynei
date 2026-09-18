@@ -19,7 +19,7 @@ from pynei.config import (
     MISSING_ALLELE,
     MAX_ALLELE_NUMBER,
     PYTHON_ARRAY_TYPE,
-    BYTE_SIZE_OF_INT,
+    BYTE_SIZE_OF_GT,
 )
 
 VCF_SAMPLE_LINE_ITEMS = [
@@ -175,7 +175,7 @@ def _parse_var_line(line, num_samples, ploidy=None):
 
     ref_gt_str = b"/".join([b"0"] * ploidy)
     gts = array.array(
-        PYTHON_ARRAY_TYPE, bytearray(num_samples * ploidy * BYTE_SIZE_OF_INT)
+        PYTHON_ARRAY_TYPE, bytearray(num_samples * ploidy * BYTE_SIZE_OF_GT)
     )
     missing_mask = array.array("b", bytearray(num_samples * ploidy))
     sample_idx = 0
@@ -267,7 +267,7 @@ def _parse_vcf_vars_chunk(vars_chunk, samples):
             ),
         },
     )
-    alleles = pandas.DataFrame(alleles, dtype=config.PANDAS_STR_DTYPE())
+    alleles = pandas.Series(alleles, dtype=config.PANDAS_ALLELES_DTYPE)
     gts = numpy.ma.array(gts, mask=missing_masks, fill_value=config.MISSING_ALLELE)
     gts.flags.writeable = False
     gts = Genotypes(gts, samples=samples, skip_mask_check=True)

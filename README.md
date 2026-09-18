@@ -23,13 +23,44 @@ and the filters are lazy: every calculation runs them again from the source.
 
 Parsing a VCF is by far the most expensive thing pynei does, and every
 calculation is one pass over the variants. If you are going to do more than one
-thing, write the variants to a vars dir once and work from it, reading a chunk
-from a vars dir is many times faster than parsing it from the VCF:
+thing, write the variants to a vars file once and work from it, reading a chunk
+from a vars file is many times faster than parsing it from the VCF:
 
 ```python
 pynei.write_vars(pynei.vars_from_vcf("variants.vcf.gz"), "variants.vars")
 variants = pynei.load_vars("variants.vars")
 ```
+
+### The vars file
+
+A vars file is one file, an [arrow IPC](https://arrow.apache.org/docs/python/feather.html)
+file, also called feather v2. One chunk of variants is one record batch, with
+the chrom, pos, id and qual of the variants, their alleles, and their genotypes
+as a fixed size list of one byte per allele. The samples, the ploidy and the
+format version travel in the schema.
+
+A genotype is one byte, so an allele goes from 0 to 127 and a missing one is
+-1. Nothing else is written: the missing genotypes are already -1 in the
+values, so there is no mask to keep beside them.
+
+You choose how the genotypes are compressed when you write the file:
+
+```python
+pynei.write_vars(variants, "variants.vars", compression=pynei.Compression.NONE)
+```
+
+Over 50000 variants and 1000 samples, 100 million genotypes:
+
+| compression | file   | write  | one pass over the file |
+| ----------- | ------ | ------ | ---------------------- |
+| `ZSTD`      |  18 MB | 0.14 s | 0.094 s                |
+| `NONE`      | 103 MB | 0.01 s | 0.019 s                |
+
+`ZSTD` is the default and it is the one to use in a browser, where the file has
+to be downloaded first and is then held in memory. `NONE` is five times faster
+to read, because the genotypes are mapped straight from the file into the
+arrays without being copied, and it is worth it when the file is on a local
+disk and you are going to go over it many times.
 
 `calc_per_var_distribs` calculates several statistics in one pass, sharing the
 allele counts between them, so ask it for everything you need at once instead of
@@ -95,11 +126,11 @@ would carry its own overhead for almost nothing.
 Over 100000 variants with 6 threads, against the fixed 10000 variants per chunk
 that pynei used before:
 
-| samples | before            | now              |
-| ------- | ----------------- | ---------------- |
-| 100     | 0.24 s, 284 MB    | 0.24 s, 284 MB   |
-| 1000    | 0.86 s, 1289 MB   | 0.71 s, 635 MB   |
-| 10000   | 9.02 s, 12293 MB  | 7.13 s, 1244 MB  |
+| samples | before           | now            |
+| ------- | ---------------- | -------------- |
+| 100     | 0.06 s, 173 MB   | 0.06 s, 171 MB |
+| 1000    | 0.46 s, 729 MB   | 0.43 s, 429 MB |
+| 10000   | 4.64 s, 5911 MB  | 3.63 s, 431 MB |
 
 Give `desired_num_vars_per_chunk` to `vars_from_vcf`, to `load_vars` or to the
 `Variants` itself to say the size yourself.
