@@ -1,8 +1,12 @@
 import pytest
+from functools import partial
+
 import numpy
 
 from pynei.variants import Variants
 from pynei.var_filters import (
+    _filter_chunk_by_ld,
+    _filter_chunk_by_maf,
     filter_by_missing_data,
     filter_by_maf,
     filter_by_obs_het,
@@ -378,3 +382,64 @@ def test_filtered_samples_are_a_tuple():
     filtered = filter_samples(variants, samples=[0, 1, 2])
     assert filtered.samples == (0, 1, 2)
     assert next(filtered.iter_vars_chunks()).gts.samples == (0, 1, 2)
+
+
+def test_the_ld_block_size_does_not_change_which_vars_are_kept():
+    """The filter walks forward a block of variants at a time looking for the
+    first one that is not linked. How big the block is is only a matter of how
+    much work is thrown away, never of which variants come out."""
+    rng = numpy.random.default_rng(7)
+    num_vars, num_samples = 300, 40
+    freqs = rng.beta(0.5, 0.5, size=num_vars)
+    gts = (rng.random((num_vars, num_samples, 2)) < freqs[:, None, None]).astype(int)
+    # runs of variants that are copies of each other, so that the walk has to
+    # go past several linked ones before it finds one that is not
+    for idx in range(num_vars):
+        src = (idx // 7) * 7
+        if src != idx and idx % 3:
+            gts[idx] = gts[src]
+
+    chunk = next(
+        Variants.from_gt_array(
+            gts, samples=[f"s{idx}" for idx in range(num_samples)]
+        ).iter_vars_chunks()
+    )
+    filter_by_maf = partial(_filter_chunk_by_maf, max_allowed_maf=0.95)
+
+    expected = None
+    for num_vars_per_block in (1, 2, 16, 64, 1000):
+        kept, num_kept, ref_gt = _filter_chunk_by_ld(
+            chunk,
+            None,
+            filter_by_maf,
+            min_allowed_r2=0.1,
+            num_vars_per_block=num_vars_per_block,
+        )
+        got = kept.gts.to_012()
+        if expected is None:
+            expected, expected_num = got, num_kept
+            assert 1 < num_kept < num_vars
+        assert num_kept == expected_num
+        assert numpy.array_equal(got, expected)
+        # the reference handed to the next chunk is the last variant kept
+        assert numpy.array_equal(ref_gt[0], expected[-1])
+
+
+def test_a_var_with_no_variance_is_not_kept_by_the_ld_filter():
+    """Its r is a nan, and a nan is not below the threshold, so it counts as
+    linked. That is what the whole matrix calculation did too."""
+    gts = numpy.array(
+        [
+            [[0, 0], [0, 1], [1, 1], [0, 1], [1, 1]],
+            [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],  # no variance at all
+            [[1, 1], [0, 1], [0, 0], [1, 0], [0, 0]],
+        ]
+    )
+    variants = Variants.from_gt_array(gts, samples=list("abcde"))
+    chunk = next(variants.iter_vars_chunks())
+    filter_by_maf = partial(_filter_chunk_by_maf, max_allowed_maf=1.1)
+    kept, num_kept, _ = _filter_chunk_by_ld(
+        chunk, None, filter_by_maf, min_allowed_r2=0.1
+    )
+    # the flat one is never picked as unlinked
+    assert not numpy.any(numpy.all(kept.gts.to_012() == 0, axis=1))

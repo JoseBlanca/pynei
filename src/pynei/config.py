@@ -74,6 +74,11 @@ VARS_COMPRESSION = "zstd"
 # enough: it hides the reading behind the work, and a second one would only
 # wait. 0 turns it off
 NUM_CHUNKS_READ_AHEAD = 1
+# The LD filter walks forward looking for the first variant that is not linked
+# to the one it is keeping, and it compares this many at a time. It only needs
+# the first one, so comparing the whole rest of the chunk is work thrown away,
+# and comparing one at a time pays the python overhead of a call per variant
+NUM_VARS_PER_LD_BLOCK = 64
 # How many variant chunks one thread takes at a time. It is one because a
 # variant chunk is already a big unit of work, thousands of variants, so
 # handing out several of them at once only leaves the other threads idle:

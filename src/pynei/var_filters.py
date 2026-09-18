@@ -4,13 +4,14 @@ from typing import Sequence
 
 import numpy
 
+from pynei.config import NUM_VARS_PER_LD_BLOCK
 from pynei.variants import Variants, VariantsChunk, _normalize_samples
 from pynei.gt_counts import (
     _calc_gt_is_missing,
     _calc_maf_per_var,
     _calc_obs_het_per_var,
 )
-from .ld_calc import _calc_rogers_huff_r2
+from .ld_calc import _calc_r_against_ref, _center_gts_for_r
 
 
 class _FilterChunkIterFactory:
@@ -191,45 +192,94 @@ def filter_samples(
     )
 
 
-def _filter_chunk_by_ld(chunk, ref_gt, filter_chunk_by_maf, min_allowed_r2):
-    selected_vars = []
+def _find_first_unlinked_var(
+    centered,
+    sum_of_squares,
+    ref_centered,
+    ref_sum_of_squares,
+    start,
+    min_allowed_r2,
+    num_vars_per_block,
+):
+    """The first variant from start on that is not linked to the reference.
+
+    Only the first one is wanted, so the variants are compared a block at a
+    time and the walk stops as soon as one of them turns up, instead of
+    comparing the reference against the whole rest of the chunk to then use
+    one of the results.
+    """
+    num_vars = centered.shape[0]
+    while start < num_vars:
+        stop = min(start + num_vars_per_block, num_vars)
+        r = _calc_r_against_ref(
+            centered[start:stop],
+            sum_of_squares[start:stop],
+            ref_centered,
+            ref_sum_of_squares,
+        )
+        # a variant with no variance at all gives a nan, and a nan is not
+        # below the threshold, so it counts as linked and is not kept
+        unlinked_vars = numpy.flatnonzero(numpy.abs(r) < min_allowed_r2)
+        if unlinked_vars.size:
+            return start + int(unlinked_vars[0])
+        start = stop
+    return None
+
+
+def _filter_chunk_by_ld(
+    chunk,
+    ref_gt,
+    filter_chunk_by_maf,
+    min_allowed_r2,
+    num_vars_per_block=NUM_VARS_PER_LD_BLOCK,
+):
     filtered_chunk, _ = filter_chunk_by_maf(chunk)
 
     if not filtered_chunk.num_vars:
         return filtered_chunk, 0, ref_gt
 
     gts_012 = filtered_chunk.gts.to_012()
-    var_offset = 0
+    # centred once for the whole chunk, the walk below only multiplies
+    centered, sum_of_squares = _center_gts_for_r(gts_012)
 
-    while True:
-        if ref_gt is None:
-            ref_gt = gts_012[0, :].reshape((1, gts_012.shape[1]))
-            selected_vars.append(0)
-            if gts_012.shape[0] == 1:
-                break
-            else:
-                gts_012 = gts_012[1:, :]
-                var_offset = 1
+    selected_vars = []
+    if ref_gt is None:
+        # the very first variant is kept, there is nothing before it that it
+        # could be linked to
+        selected_vars.append(0)
+        ref_centered = centered[0]
+        ref_sum_of_squares = sum_of_squares[0]
+        idx = 1
+    else:
+        # the reference comes from the chunk before, so it has to be centred
+        # on its own
+        ref_centered, ref_sum_of_squares = _center_gts_for_r(ref_gt)
+        ref_centered = ref_centered[0]
+        ref_sum_of_squares = ref_sum_of_squares[0]
+        idx = 0
 
-        r2 = _calc_rogers_huff_r2(ref_gt, gts_012, check_no_mafs_above=None).flat
-        r2 = numpy.abs(r2)
-
-        unlinked_vars = numpy.where(r2 < min_allowed_r2)[0]
-        if not unlinked_vars.size:
+    while idx < centered.shape[0]:
+        found = _find_first_unlinked_var(
+            centered,
+            sum_of_squares,
+            ref_centered,
+            ref_sum_of_squares,
+            idx,
+            min_allowed_r2,
+            num_vars_per_block,
+        )
+        if found is None:
             break
-        first_non_linked_var_idx = unlinked_vars[0]
+        selected_vars.append(found)
+        ref_centered = centered[found]
+        ref_sum_of_squares = sum_of_squares[found]
+        idx = found + 1
 
-        selected_vars.append(first_non_linked_var_idx + var_offset)
-
-        ref_gt = gts_012[first_non_linked_var_idx : first_non_linked_var_idx + 1, :]
-
-        if first_non_linked_var_idx == gts_012.shape[0] - 1:
-            # this is the last var of the chunk
-            break
-
-        gts_012 = gts_012[first_non_linked_var_idx + 1 :, :]
-
-        var_offset += first_non_linked_var_idx + 1
+    ref_gt = (
+        gts_012[selected_vars[-1] : selected_vars[-1] + 1, :]
+        if selected_vars
+        else ref_gt
+    )
     filtered_chunk = filtered_chunk.get_vars(selected_vars)
     return filtered_chunk, len(selected_vars), ref_gt
 

@@ -16,6 +16,7 @@ from pynei.ld import (
     calc_ld_and_dist_per_pop,
     LDCalcMethod,
 )
+from pynei.ld_calc import _calc_r_against_ref, _center_gts_for_r
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from pynei.var_filters import filter_by_missing_data
 from .var_generators import generate_vars, create_sample_names
@@ -433,3 +434,52 @@ def test_r2_matrix_with_chunks_of_different_sizes():
         assert res.r2.shape == (num_vars, num_vars)
         assert numpy.allclose(res.dists_in_bp, expected.dists_in_bp)
         assert numpy.allclose(numpy.abs(res.r2), numpy.abs(expected.r2))
+
+
+def test_the_r_matrix_is_the_one_numpy_cov_gives():
+    """The r used to come out of numpy.cov, which stacks the two sets of
+    variants and works out every pair within each of them as well, only to
+    throw them away. This pins the result to what that gave."""
+    rng = numpy.random.default_rng(11)
+    num_samples = 60
+    gts1 = rng.integers(0, 3, (25, num_samples))
+    gts2 = rng.integers(0, 3, (17, num_samples))
+    gts1[4, :] = 2  # no variance, so that the nans are pinned too
+
+    covars = numpy.cov(gts1, gts2, ddof=1)
+    variances = numpy.diag(covars)
+    vars1, vars2 = variances[:25], variances[25:]
+    with numpy.errstate(divide="ignore", invalid="ignore"):
+        expected = covars[:25, 25:] / numpy.sqrt(numpy.outer(vars1, vars2))
+
+    got = _calc_rogers_huff_r2(gts1, gts2, check_no_mafs_above=None)
+    assert got.shape == (25, 17)
+    assert numpy.allclose(got, expected, equal_nan=True)
+    assert numpy.array_equal(numpy.isnan(got), numpy.isnan(expected))
+
+
+def test_r_against_one_ref_is_a_row_of_the_matrix():
+    rng = numpy.random.default_rng(12)
+    num_samples = 50
+    gts = rng.integers(0, 3, (30, num_samples))
+    centered, sum_of_squares = _center_gts_for_r(gts)
+
+    matrix = _calc_rogers_huff_r2(gts, gts, check_no_mafs_above=None)
+    for ref_idx in (0, 7, 29):
+        row = _calc_r_against_ref(
+            centered, sum_of_squares, centered[ref_idx], sum_of_squares[ref_idx]
+        )
+        assert row.shape == (30,)
+        assert numpy.allclose(row, matrix[:, ref_idx], equal_nan=True)
+
+
+def test_the_r_matrix_does_not_build_the_square_of_both_sets_together():
+    """One variant against many used to allocate an (n + 1) square matrix, so
+    a chunk of 20000 variants asked for 3 GB to use 20000 numbers."""
+    rng = numpy.random.default_rng(13)
+    num_samples = 40
+    ref = rng.integers(0, 3, (1, num_samples))
+    many = rng.integers(0, 3, (20_000, num_samples))
+    got = _calc_rogers_huff_r2(ref, many, check_no_mafs_above=None)
+    assert got.shape == (1, 20_000)
+    assert got.nbytes < 1e6
