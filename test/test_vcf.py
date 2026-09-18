@@ -118,3 +118,40 @@ def test_vcf_samples_are_a_tuple():
         variants = vars_from_vcf(Path(tmp.name))
         assert variants.samples == ("NA00001", "NA00002", "NA00003")
         assert next(variants.iter_vars_chunks()).gts.samples == variants.samples
+
+
+# the GT is the last field of the FORMAT, so the genotype of the last sample
+# carries the end of the line with it
+VCF_GT_ONLY = b"""##fileformat=VCFv4.2
+#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\ts1\ts2\ts3
+20\t10\t.\tA\tT\t29\tPASS\t.\tGT\t0/0\t0/1\t./.
+20\t20\t.\tA\tT\t29\tPASS\t.\tGT\t./.\t1/1\t0/1
+20\t30\t.\tA\tT\t29\tPASS\t.\tGT:DP\t0/1:3\t0/1:3\t./.:3
+"""
+
+
+def test_missing_gt_in_the_last_sample():
+    # the line ends after the genotype of the last sample, so its ./. comes
+    # with the end of the line attached to it
+    with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
+        tmp.write(VCF_GT_ONLY)
+        tmp.flush()
+        chunk = next(vars_from_vcf(Path(tmp.name)).iter_vars_chunks())
+        expected = [
+            [[0, 0], [0, 1], [-1, -1]],
+            [[-1, -1], [1, 1], [0, 1]],
+            [[0, 1], [0, 1], [-1, -1]],
+        ]
+        assert numpy.array_equal(chunk.gts.gt_values, numpy.array(expected))
+        assert numpy.array_equal(chunk.gts.missing_mask, numpy.array(expected) == -1)
+
+
+def test_vcf_with_windows_line_ends():
+    with tempfile.NamedTemporaryFile(suffix=".vcf") as tmp:
+        tmp.write(VCF_GT_ONLY.replace(b"\n", b"\r\n"))
+        tmp.flush()
+        chunk = next(vars_from_vcf(Path(tmp.name)).iter_vars_chunks())
+        assert chunk.num_vars == 3
+        assert numpy.array_equal(
+            chunk.gts.gt_values[0], numpy.array([[0, 0], [0, 1], [-1, -1]])
+        )

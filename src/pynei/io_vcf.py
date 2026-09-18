@@ -156,7 +156,9 @@ def _parse_id(id_):
 
 
 def _parse_var_line(line, num_samples, ploidy=None):
-    fields = line.split(b"\t")
+    # the line still carries its end, and the genotype of the last sample is
+    # the one that would keep it, so its ./. would not be seen as missing
+    fields = line.rstrip(b"\r\n").split(b"\t")
     ref = fields[3].decode()
     alt = fields[4]
     if alt != b".":
