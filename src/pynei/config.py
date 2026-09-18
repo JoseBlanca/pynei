@@ -38,4 +38,8 @@ MISSING_ALLELE = -1
 
 DEF_NUMPY_GZIP_COMPRESSION_LEVEL = 4
 
-MAP_REDUCE_CHUNK_SIZE = 50
+# How many variant chunks one thread takes at a time. It is one because a
+# variant chunk is already a big unit of work, thousands of variants, so
+# handing out several of them at once only leaves the other threads idle:
+# with 10 chunks and 50 of them per thread, one thread did everything
+MAP_REDUCE_CHUNK_SIZE = 1

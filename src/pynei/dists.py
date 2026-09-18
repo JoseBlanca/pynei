@@ -252,14 +252,12 @@ def _reduce_kosman_dists(acummulated_dists_and_snps, new_dists_and_snps):
     return abs_distances, n_snps_matrix
 
 
-def _calc_pairwise_dists_exact(variants, dist_pipeline, num_processes=2, debug=False):
-    dists = dist_pipeline.map_and_reduce(variants, num_processes=num_processes)
+def _calc_pairwise_dists_exact(variants, dist_pipeline, num_threads=1, debug=False):
+    dists = dist_pipeline.map_and_reduce(variants, num_threads=num_threads)
     return dists
 
 
-def _get_dists(
-    variants, dist_pipeline, cached_dists=None, num_processes=2, debug=False
-):
+def _get_dists(variants, dist_pipeline, cached_dists=None, num_threads=1, debug=False):
     pop1_samples = dist_pipeline.pop1_samples
     pop2_samples = dist_pipeline.pop2_samples
     if cached_dists is None:
@@ -272,7 +270,7 @@ def _get_dists(
 
     if samples_to_calc_dists_from.size:
         new_dists = _calc_pairwise_dists_exact(
-            variants, dist_pipeline, num_processes=num_processes, debug=debug
+            variants, dist_pipeline, num_threads=num_threads, debug=debug
         )
     else:
         new_dists = None
@@ -296,7 +294,7 @@ def _select_seed_samples_for_embedding(
     num_initial_samples,
     max_num_seed_expansions,
     min_num_snps=None,
-    num_processes=2,
+    num_threads=1,
 ):
     all_samples = _get_samples_from_variants(variants)
 
@@ -316,7 +314,7 @@ def _select_seed_samples_for_embedding(
         seed_dists, cached_dists = _get_dists(
             variants,
             dist_pipeline,
-            num_processes=num_processes,
+            num_threads=num_threads,
             cached_dists=None,
         )
 
@@ -333,7 +331,7 @@ def _select_seed_samples_for_embedding(
         dists_to_most_distant_samples, cached_dists = _get_dists(
             variants,
             dist_pipeline,
-            num_processes=num_processes,
+            num_threads=num_threads,
             cached_dists=cached_dists,
             debug=True,
         )
@@ -359,7 +357,7 @@ def _calc_pairwise_dists_btw_all_and_some_ref_indis(
     min_num_snps=None,
     num_initial_samples=None,
     max_num_seed_expansions=5,
-    num_processes=2,
+    num_threads=1,
 ):
     # following "Sequence embedding for fast construction of guide trees for multiple sequence alignment"
     # Blackshields, Algorithms for Molecular Biology (2010). https://doi.org/10.1186/1748-7188-5-21
@@ -370,7 +368,7 @@ def _calc_pairwise_dists_btw_all_and_some_ref_indis(
         num_initial_samples,
         max_num_seed_expansions,
         min_num_snps=min_num_snps,
-        num_processes=num_processes,
+        num_threads=num_threads,
     )
     all_samples = _get_samples_from_variants(variants)
 
@@ -383,7 +381,7 @@ def _calc_pairwise_dists_btw_all_and_some_ref_indis(
         variants,
         dist_pipeline,
         cached_dists=cached_dists,
-        num_processes=num_processes,
+        num_threads=num_threads,
     )
     dists_btw_all_indis_and_some_ref_indis = pandas.DataFrame(
         dists_for_embedding.T, index=all_samples
@@ -424,12 +422,12 @@ def calc_pairwise_euclidean_dists(sample_data: pandas.DataFrame):
     return Distances(_calc_pairwise_euclidean_dists(sample_data), sample_data.index)
 
 
-def _calc_pairwise_dists_using_embedding(variants, num_processes=2, min_num_snps=None):
+def _calc_pairwise_dists_using_embedding(variants, num_threads=1, min_num_snps=None):
     dists_between_all_indis_and_some_ref_indis = (
         _calc_pairwise_dists_btw_all_and_some_ref_indis(
             variants,
             min_num_snps=min_num_snps,
-            num_processes=num_processes,
+            num_threads=num_threads,
         )
     )
     return _calc_pairwise_euclidean_dists(dists_between_all_indis_and_some_ref_indis)
@@ -437,14 +435,14 @@ def _calc_pairwise_dists_using_embedding(variants, num_processes=2, min_num_snps
 
 def _calc_pairwise_dists(
     variants,
-    num_processes=2,
+    num_threads=1,
     min_num_snps=None,
     use_approx_embedding_algorithm=False,
 ):
     if use_approx_embedding_algorithm:
         dists = _calc_pairwise_dists_using_embedding(
             variants,
-            num_processes=num_processes,
+            num_threads=num_threads,
             min_num_snps=min_num_snps,
         )
     else:
@@ -452,7 +450,7 @@ def _calc_pairwise_dists(
         dists = _calc_pairwise_dists_exact(
             variants,
             dist_pipeline=pipeline,
-            num_processes=num_processes,
+            num_threads=num_threads,
         )
     dists = Distances(dists, _get_samples_from_variants(variants))
     return dists
@@ -495,7 +493,7 @@ def _create_kosman_dist_pipeline(
 
 
 def calc_pairwise_kosman_dists(
-    variants, min_num_snps=None, use_approx_embedding_algorithm=False, num_processes=1
+    variants, min_num_snps=None, use_approx_embedding_algorithm=False, num_threads=1
 ) -> Distances:
     """It calculates the distance between individuals using the Kosman
     distance.
@@ -506,7 +504,7 @@ def calc_pairwise_kosman_dists(
     return _calc_pairwise_dists(
         variants,
         min_num_snps=min_num_snps,
-        num_processes=num_processes,
+        num_threads=num_threads,
         use_approx_embedding_algorithm=use_approx_embedding_algorithm,
     )
 
@@ -718,6 +716,7 @@ def calc_jost_dest_pop_dists(
     pops: Pops,
     alleles: list[int] | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
+    num_threads: int = 1,
 ) -> Distances:
     """This is an implementation of the formulas proposed in GenAlex"""
 
@@ -736,7 +735,7 @@ def calc_jost_dest_pop_dists(
         reduce_funct=_accumulate_dest_results,
     )
 
-    res = pipeline.map_and_reduce(variants)
+    res = pipeline.map_and_reduce(variants, num_threads=num_threads)
     accumulated_hs = res["hs"]
     accumulated_ht = res["ht"]
     num_vars = res["num_vars"]

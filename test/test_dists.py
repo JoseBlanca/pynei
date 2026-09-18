@@ -229,7 +229,7 @@ def test_kosman_pairwise():
     assert numpy.corrcoef(dists_emb.values.flat, dists.values.flat)[0, 1] > 0.99
 
     dists_emb = calc_pairwise_kosman_dists(
-        variants, use_approx_embedding_algorithm=True, num_processes=2
+        variants, use_approx_embedding_algorithm=True, num_threads=2
     )
     dists_emb = dists_emb.square_dists
     dists_emb = dists_emb.loc[dists.index, :].loc[:, dists.index]

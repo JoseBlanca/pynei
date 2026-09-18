@@ -51,7 +51,7 @@ def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
     return gts012
 
 
-def create_012_gt_matrix(variants, transform_to_biallelic=False, num_processes=1):
+def create_012_gt_matrix(variants, transform_to_biallelic=False, num_threads=1):
     create_012_matrix = partial(
         _create_012_gt_matrix, transform_to_biallelic=transform_to_biallelic
     )
@@ -60,7 +60,7 @@ def create_012_gt_matrix(variants, transform_to_biallelic=False, num_processes=1
     # vstack copies everything that it has already stacked every time, and that
     # makes building the matrix quadratic in the number of chunks.
     # map_chunks keeps the order of the chunks, threads or not.
-    chunk_matrices = list(pipeline.map_chunks(variants, num_processes=num_processes))
+    chunk_matrices = list(pipeline.map_chunks(variants, num_threads=num_threads))
     if not chunk_matrices:
         raise ValueError("There are no variants to build the 012 matrix from")
     return numpy.vstack(chunk_matrices)
@@ -150,7 +150,7 @@ def _remove_vars_with_no_variance(mat012: pandas.DataFrame) -> pandas.DataFrame:
     return mat012.loc[:, has_variance]
 
 
-def do_pca_from_variants(variants, transform_to_biallelic=False, num_processes=1):
+def do_pca_from_variants(variants, transform_to_biallelic=False, num_threads=1):
     """It does a PCA using the 012 matrix of the variants.
 
     The missing genotypes are replaced by the mean of their variant, and the
@@ -161,7 +161,7 @@ def do_pca_from_variants(variants, transform_to_biallelic=False, num_processes=1
     mat012 = create_012_gt_matrix(
         variants,
         transform_to_biallelic=transform_to_biallelic,
-        num_processes=num_processes,
+        num_threads=num_threads,
     )
     mat012 = _fill_missing_gts_with_var_mean(mat012)
     mat012 = pandas.DataFrame(mat012.T, index=variants.samples)
@@ -256,11 +256,15 @@ def do_pcoa(dists: Distances):
 
 
 def do_pcoa_from_variants(
-    variants, min_num_snps=None, use_approx_embedding_algorithm=False
+    variants,
+    min_num_snps=None,
+    use_approx_embedding_algorithm=False,
+    num_threads: int = 1,
 ):
     dists = calc_pairwise_kosman_dists(
         variants,
         min_num_snps=min_num_snps,
         use_approx_embedding_algorithm=use_approx_embedding_algorithm,
+        num_threads=num_threads,
     )
     return do_pcoa(dists)

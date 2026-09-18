@@ -197,11 +197,11 @@ def test_mat012_with_threads_is_the_same_as_without():
         return variants
 
     serial = create_012_gt_matrix(create_vars())
-    for num_processes in (2, 4):
-        threaded = create_012_gt_matrix(create_vars(), num_processes=num_processes)
+    for num_threads in (2, 4):
+        threaded = create_012_gt_matrix(create_vars(), num_threads=num_threads)
         assert numpy.array_equal(threaded, serial)
 
-    projections = do_pca_from_variants(create_vars(), num_processes=4).projections
+    projections = do_pca_from_variants(create_vars(), num_threads=4).projections
     assert numpy.allclose(projections, do_pca_from_variants(create_vars()).projections)
 
 

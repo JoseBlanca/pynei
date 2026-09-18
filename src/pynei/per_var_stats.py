@@ -136,7 +136,7 @@ def calc_per_var_distribs(
     unbiased_exp_het: bool = True,
     ploidy: int | None = None,
     poly_threshold: float = DEF_POLY_THRESHOLD,
-    num_processes: int = 1,
+    num_threads: int = 1,
 ) -> PerVarDistribs:
     """It calculates several per variant statistics in one pass over the variants.
 
@@ -195,5 +195,5 @@ def calc_per_var_distribs(
             pops_idxs, poly_threshold=poly_threshold, min_num_samples=min_num_samples
         )
 
-    results = run_chunk_calcs(variants, calcs, num_processes=num_processes)
+    results = run_chunk_calcs(variants, calcs, num_threads=num_threads)
     return PerVarDistribs(**{str(stat): result for stat, result in results.items()})

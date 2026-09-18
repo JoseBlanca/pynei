@@ -122,7 +122,7 @@ def test_threaded_run_gives_the_same_result():
     variants = _create_vars(chunk_size=10)
     serial = calc_per_var_distribs(variants, pops=POPS, min_num_samples=5)
     threaded = calc_per_var_distribs(
-        variants, pops=POPS, min_num_samples=5, num_processes=2
+        variants, pops=POPS, min_num_samples=5, num_threads=2
     )
     assert numpy.allclose(serial.maf.mean, threaded.maf.mean)
     assert numpy.all(serial.maf.hist_counts.values == threaded.maf.hist_counts.values)
@@ -167,7 +167,5 @@ def test_mapping_the_chunks_with_threads_keeps_every_chunk_in_order():
     variants = _create_vars(chunk_size=5)
     serial = list(pipeline.map_chunks(variants))
     assert sum(serial) == 100
-    for num_processes in (2, 4):
-        assert (
-            list(pipeline.map_chunks(variants, num_processes=num_processes)) == serial
-        )
+    for num_threads in (2, 4):
+        assert list(pipeline.map_chunks(variants, num_threads=num_threads)) == serial

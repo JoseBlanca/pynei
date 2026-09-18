@@ -38,14 +38,14 @@ class Pipeline:
     def _process_vars(
         self,
         variants,
-        num_processes: int = 1,
+        num_threads: int = 1,
         map_reduce_chunk_size=MAP_REDUCE_CHUNK_SIZE,
     ):
         process_chunk = _ChunkProcessor(self.map_functs)
 
-        use_multiprocessing = num_processes > 1
+        use_threads = num_threads > 1
 
-        if use_multiprocessing:
+        if use_threads:
             import threaded_map_reduce
 
             if self.reduce_funct:
@@ -53,14 +53,14 @@ class Pipeline:
                     map_fn=process_chunk,
                     reduce_fn=self.reduce_funct,
                     iterable=variants.iter_vars_chunks(),
-                    num_computing_threads=num_processes,
+                    num_computing_threads=num_threads,
                     chunk_size=map_reduce_chunk_size,
                 )
             else:
                 result = threaded_map_reduce.map(
                     map_fn=process_chunk,
                     items=variants.iter_vars_chunks(),
-                    num_computing_threads=num_processes,
+                    num_computing_threads=num_threads,
                     chunk_size=map_reduce_chunk_size,
                 )
         else:
@@ -76,19 +76,19 @@ class Pipeline:
 
         return result
 
-    def map_chunks(self, variants, num_processes: int = 1) -> Iterator:
+    def map_chunks(self, variants, num_threads: int = 1) -> Iterator:
         if self.reduce_funct is not None or self.reduce_initializer is not None:
             raise ValueError(
                 "For mapping reduce_funct and reduce_initializer must be None"
             )
         # threaded_map_reduce.map keeps the order of the items, so the chunks
         # come out in the order of the variants however many threads run
-        return self._process_vars(variants, num_processes)
+        return self._process_vars(variants, num_threads)
 
-    def map_and_reduce(self, variants, num_processes: int = 1):
+    def map_and_reduce(self, variants, num_threads: int = 1):
         if self.reduce_funct is None:
             raise ValueError("For mapping and reducing reduce_funct must be set")
-        return self._process_vars(variants, num_processes)
+        return self._process_vars(variants, num_threads)
 
 
 class ChunkCalc(Protocol):
@@ -109,7 +109,7 @@ class ChunkCalc(Protocol):
 
 
 def run_chunk_calcs(
-    variants, calcs: dict[str, ChunkCalc], num_processes: int = 1
+    variants, calcs: dict[str, ChunkCalc], num_threads: int = 1
 ) -> dict:
     """It runs several ChunkCalcs in one single pass over the variants.
 
@@ -131,7 +131,7 @@ def run_chunk_calcs(
         }
 
     pipeline = Pipeline(map_functs=[calc_for_chunk], reduce_funct=reduce)
-    accumulated = pipeline.map_and_reduce(variants, num_processes=num_processes)
+    accumulated = pipeline.map_and_reduce(variants, num_threads=num_threads)
     if accumulated is None:
         raise ValueError("There are no variants to calculate anything from")
 

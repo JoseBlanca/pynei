@@ -37,3 +37,31 @@ calling it once per statistic.
 
 The distances calculated with the embedding algorithm and the linkage
 disequilibrium go over the variants several times by their nature.
+
+### Using several threads
+
+The calculations that go chunk by chunk take a `num_threads`, and they hand one
+chunk at a time to each thread:
+
+```python
+res = pynei.calc_per_var_distribs(variants, num_threads=4)
+```
+
+How much it helps depends on the python build. These are the speed ups measured
+on 6 performance cores, over 100000 variants and 100 samples:
+
+|                          | 3.14 with the GIL | 3.14 free threaded |
+| ------------------------ | ----------------- | ------------------ |
+| `calc_per_var_distribs`  | 3.2x              | 3.4x               |
+| `create_012_gt_matrix`   | 4.4x              | 4.5x               |
+| `calc_pairwise_kosman_dists` | 0.8x          | 2.3x               |
+
+The Kosman distances are the exception: they compare the samples pair by pair in
+python, which holds the GIL, so with a normal python build asking for threads
+makes them slower, not faster. Leave them with one thread unless you are running
+a free threaded python.
+
+The chunks have to be big enough for the threads to have something to do. With
+the default of 10000 variants per chunk a dataset of 100000 variants is 10
+chunks, which is enough for a few threads, but a much smaller dataset is not
+worth threading.
