@@ -141,7 +141,8 @@ that pynei used before:
 Give `desired_num_vars_per_chunk` to `vars_from_vcf`, to `load_vars` or to the
 `Variants` itself to say the size yourself.
 
-`create_012_gt_matrix` behaves like the table above, it is numpy all the way.
-`calc_pairwise_kosman_dists` is the exception, it compares the samples pair by
-pair in python, so with a normal python build the threads make it slower, 0.8x,
-and it only pays on a free threaded one, 2.3x.
+`create_012_gt_matrix` behaves like the table above, it is numpy all the way,
+and so does `calc_pairwise_kosman_dists`, which works out every pair of samples
+at once with matrix products: 20 chunks of 500 variants and 1000 samples take
+0.172 s with one thread and 0.051 s with six, 3.4x. It used to compare the
+samples pair by pair in python, and then the threads made it slower, 0.8x.

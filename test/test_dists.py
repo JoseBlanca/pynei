@@ -1,3 +1,4 @@
+import itertools
 import math
 import random
 
@@ -14,7 +15,7 @@ from pynei.dists import (
     _DestDistCalculator,
 )
 from pynei import Variants, calc_pairwise_kosman_dists, filter_by_missing_data
-from pynei.dists import _calc_pops_idxs
+from pynei.dists import _calc_pops_idxs, _calc_kosman_dist_for_chunk
 
 
 def test_distances():
@@ -334,3 +335,71 @@ def test_kosman_pairwise_with_filtered_vars():
     square_dists_emb = dists_emb.square_dists
     assert square_dists_emb.shape == (num_samples, num_samples)
     assert not numpy.any(numpy.isnan(square_dists_emb.values))
+
+
+def test_the_pop_sample_order_is_the_one_that_was_asked_for():
+    """The rows used to come out in the order the samples have in the chunk
+    while being labelled in the order they were asked for, so asking for them
+    in another order put the distances of one sample under the name of
+    another."""
+    rng = numpy.random.default_rng(1)
+    gts = rng.integers(0, 2, (200, 4, 2)).astype(numpy.int8)
+    chunk = next(
+        Variants.from_gt_array(gts, samples=["a", "b", "c", "d"]).iter_vars_chunks()
+    )
+
+    straight, snps1 = _calc_kosman_dist_for_chunk(
+        chunk, pop1_samples=["a", "b"], pop2_samples=["c", "d"]
+    )
+    swapped, snps2 = _calc_kosman_dist_for_chunk(
+        chunk, pop1_samples=["b", "a"], pop2_samples=["c", "d"]
+    )
+    assert list(straight.index) == ["a", "b"]
+    assert list(swapped.index) == ["b", "a"]
+    # whatever order they are asked in, a row belongs to the sample it names
+    for sample in ("a", "b"):
+        assert numpy.allclose(straight.loc[sample].values, swapped.loc[sample].values)
+        assert numpy.allclose(snps1.loc[sample].values, snps2.loc[sample].values)
+
+    # and the columns too
+    cols_swapped, _ = _calc_kosman_dist_for_chunk(
+        chunk, pop1_samples=["a", "b"], pop2_samples=["d", "c"]
+    )
+    for sample in ("c", "d"):
+        assert numpy.allclose(straight[sample].values, cols_swapped[sample].values)
+
+
+def test_the_kosman_dists_are_the_ones_the_pairwise_loop_gave():
+    """The distances are worked out for every pair at once with matrix
+    products now. This pins them to what comparing the pairs one by one gave,
+    over multiallelic variants and missing genotypes, half missing included."""
+    rng = numpy.random.default_rng(4)
+    num_vars, num_samples = 120, 9
+    gts = rng.integers(0, 4, (num_vars, num_samples, 2)).astype(numpy.int8)
+    gts[rng.random(gts.shape) < 0.2] = -1
+    samples = [f"s{idx}" for idx in range(num_samples)]
+    chunk = next(Variants.from_gt_array(gts, samples=samples).iter_vars_chunks())
+
+    dist_sums, n_snps = _calc_kosman_dist_for_chunk(chunk)
+
+    # the same thing, one pair at a time, straight from the definition
+    expected_dists, expected_snps = [], []
+    for i, j in itertools.combinations(range(num_samples), 2):
+        total, counted = 0.0, 0
+        for var in range(num_vars):
+            gt_i, gt_j = gts[var, i], gts[var, j]
+            if -1 in gt_i or -1 in gt_j:
+                continue
+            counted += 1
+            shared = set(gt_i.tolist()) & set(gt_j.tolist())
+            if set(gt_i.tolist()) == set(gt_j.tolist()):
+                total += 0
+            elif not shared:
+                total += 1
+            else:
+                total += 0.5
+        expected_dists.append(total)
+        expected_snps.append(counted)
+
+    assert numpy.allclose(dist_sums, expected_dists)
+    assert numpy.array_equal(n_snps, expected_snps)

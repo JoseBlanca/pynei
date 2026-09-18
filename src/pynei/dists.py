@@ -8,7 +8,7 @@ import numpy
 import pandas
 
 from pynei.pipeline import Pipeline
-from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT
+from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, MISSING_ALLELE
 from pynei.utils_pop import Pops, _calc_pops_idxs
 from pynei.gt_counts import _count_alleles_per_var, _calc_obs_het_per_var
 
@@ -113,7 +113,12 @@ class Distances:
 
 class _KosmanDistCalculator:
     def __init__(self, chunk):
-        """It calculates the pairwise distance between individuals using the Kosman-Leonard dist
+        """The Kosman-Leonard distance between two individuals, one pair at a time.
+
+        This is the distance written out as the paper defines it. The chunks
+        are not walked through pair by pair any more, _calc_kosman_dist_for_chunk
+        does every pair at once with matrix products, and this is what that is
+        checked against.
 
         The Kosman distance is explained in "Similarity coefficients for molecular markers in
         studies of genetic relationships between individuals for haploid, diploid, and polyploid
@@ -201,12 +206,12 @@ def _calc_pairwise_dists_between_pops(
     if pop1_samples is None:
         sample_combinations = itertools.combinations(range(n_samples), 2)
     else:
-        pop1_indi_idxs = [
-            idx for idx, sample in enumerate(indi_names) if sample in pop1_samples
-        ]
-        pop2_indi_idxs = [
-            idx for idx, sample in enumerate(indi_names) if sample in pop2_samples
-        ]
+        # in the order they were asked for, not in the order they happen to
+        # have in the chunk, or the rows would be labelled with one sample and
+        # hold the distances of another
+        idx_of_sample = {sample: idx for idx, sample in enumerate(indi_names)}
+        pop1_indi_idxs = [idx_of_sample[sample] for sample in pop1_samples]
+        pop2_indi_idxs = [idx_of_sample[sample] for sample in pop2_samples]
         sample_combinations = itertools.product(pop1_indi_idxs, pop2_indi_idxs)
 
     index = 0
@@ -231,12 +236,113 @@ def _calc_pairwise_dists_between_pops(
     return dists_sum, n_snps_matrix
 
 
+def _calc_kosman_dist_sums(gts, idxs1=None, idxs2=None):
+    """The Kosman distances of every pair of samples added over the variants.
+
+    It gives back that sum and how many variants were called in both samples,
+    so that the chunks can be added up before the division.
+
+    For diploids the distance of a variant is 0 when the two genotypes are the
+    same pair of alleles, 1 when they have no allele in common, and 0.5
+    otherwise. Writing the genotypes as the sets of the alleles they hold,
+    that is
+
+        dist = 1 - 0.5 * (shared_alleles + both_homozygous_for_the_same_one)
+
+        shared  hom  case                                    dist
+             0    0  no allele in common                      1
+             1    0  one allele in common, different gts      0.5
+             1    1  both a/a                                 0
+             2    0  the same heterozygote                    0
+
+    and both terms are sums over the alleles of a product of two per sample
+    indicators, so both are matrix products. That is what makes this fast:
+    the pairs are not walked through in python, BLAS does all of them at once
+    and lets go of the GIL while it does.
+    """
+    if gts.shape[2] != 2:
+        raise ValueError("Only diploid are allowed")
+
+    def split(one_gts):
+        gt0, gt1 = one_gts[:, :, 0], one_gts[:, :, 1]
+        called = (gt0 != MISSING_ALLELE) & (gt1 != MISSING_ALLELE)
+        return gt0, gt1, called
+
+    gts1 = gts if idxs1 is None else gts[:, idxs1, :]
+    gt0_1, gt1_1, called1 = split(gts1)
+    if idxs2 is None:
+        gt0_2, gt1_2, called2 = gt0_1, gt1_1, called1
+    else:
+        gt0_2, gt1_2, called2 = split(gts[:, idxs2, :])
+
+    # float32 is exact for these counts, they never go above the number of
+    # variants of a chunk, and it is the fastest thing BLAS will multiply
+    called1_f = called1.astype(numpy.float32)
+    called2_f = called1_f if idxs2 is None else called2.astype(numpy.float32)
+    n_snps = called1_f.T @ called2_f
+
+    accumulated = numpy.zeros(n_snps.shape, dtype=numpy.float32)
+    max_allele = int(gts.max()) if gts.size else MISSING_ALLELE
+    for allele in range(max_allele + 1):
+        carries1 = ((gt0_1 == allele) | (gt1_1 == allele)) & called1
+        carries2 = (
+            carries1
+            if idxs2 is None
+            else ((gt0_2 == allele) | (gt1_2 == allele)) & called2
+        )
+        if not (carries1.any() and carries2.any()):
+            # an allele that no genotype has, the alleles are walked from 0 to
+            # the biggest one and the ones in between can be missing
+            continue
+        left = carries1.astype(numpy.float32)
+        accumulated += left.T @ (
+            left if idxs2 is None else carries2.astype(numpy.float32)
+        )
+
+        homozygous1 = (gt0_1 == allele) & (gt1_1 == allele)
+        homozygous2 = (
+            homozygous1 if idxs2 is None else (gt0_2 == allele) & (gt1_2 == allele)
+        )
+        if homozygous1.any() and homozygous2.any():
+            left = homozygous1.astype(numpy.float32)
+            accumulated += left.T @ (
+                left if idxs2 is None else homozygous2.astype(numpy.float32)
+            )
+
+    return n_snps - 0.5 * accumulated, n_snps
+
+
 def _calc_kosman_dist_for_chunk(chunk, pop1_samples=None, pop2_samples=None):
-    dist_between_items_calculator = _KosmanDistCalculator(chunk)
-    return _calc_pairwise_dists_between_pops(
-        dist_between_items_calculator,
-        pop1_samples=pop1_samples,
-        pop2_samples=pop2_samples,
+    if (pop1_samples is None) != (pop2_samples is None):
+        raise ValueError(
+            "When pop1_samples or pop2_samples are given both should be given"
+        )
+
+    gts = chunk.gts.gt_values
+
+    if pop1_samples is None:
+        dist_sums, n_snps = _calc_kosman_dist_sums(gts)
+        # the pairs in the order itertools.combinations gives them, which is
+        # the order the accumulated vector is kept in
+        rows, cols = numpy.triu_indices(dist_sums.shape[0], k=1)
+        return (
+            dist_sums[rows, cols].astype(float),
+            n_snps[rows, cols].astype(float),
+        )
+
+    idx_of_sample = {
+        sample: idx for idx, sample in enumerate(_get_samples_from_variants(chunk))
+    }
+    idxs1 = [idx_of_sample[sample] for sample in pop1_samples]
+    idxs2 = [idx_of_sample[sample] for sample in pop2_samples]
+    dist_sums, n_snps = _calc_kosman_dist_sums(gts, idxs1, idxs2)
+    return (
+        pandas.DataFrame(
+            dist_sums.astype(float), index=pop1_samples, columns=pop2_samples
+        ),
+        pandas.DataFrame(
+            n_snps.astype(float), index=pop1_samples, columns=pop2_samples
+        ),
     )
 
 
