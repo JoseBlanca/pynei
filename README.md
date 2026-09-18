@@ -183,8 +183,8 @@ same. Over 100000 variants:
 
 | samples | kinship 1 thread / 6 | linear      | linear mixed | logistic    | logistic mixed |
 | ------- | -------------------- | ----------- | ------------ | ----------- | -------------- |
-| 100     | 0.11 s / 0.04        | 0.08 / 0.07 | 0.08 / 0.10  | 0.45 / 0.14 | 0.07 / 0.04    |
-| 1000    | 1.11 s / 0.32        | 0.58 / 0.19 | 0.88 / 0.44  | 2.69 / 0.84 | 0.95 / 0.54    |
+| 100     | 0.09 s / 0.03        | 0.06 / 0.07 | 0.06 / 0.13  | 0.42 / 0.14 | 0.05 / 0.03    |
+| 1000    | 0.96 s / 0.30        | 0.40 / 0.15 | 0.72 / 0.42  | 2.52 / 0.82 | 0.76 / 0.52    |
 
 With 5000 samples the null model is what costs: 8 s of the 8.9 s of a linear
 mixed model over 20000 variants, 6 s of them the eigendecomposition, and 25 s
