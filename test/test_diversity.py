@@ -4,9 +4,9 @@ from pynei.variants import Variants
 from pynei.diversity import (
     _calc_exp_het_per_var,
     _calc_unbiased_exp_het_per_var,
-    calc_exp_het_stats_per_var,
+    calc_exp_het_per_var_distrib,
     _calc_num_poly_vars,
-    calc_poly_vars_ratio_per_var,
+    calc_poly_vars_ratio,
 )
 from pynei.config import DEF_POP_NAME
 
@@ -38,7 +38,7 @@ def test_calc_exp_het():
     expected = [[0.83333333, 0.0], [0.0, 0.66666667], [numpy.nan, numpy.nan]]
     assert numpy.allclose(res["exp_het"].values, expected, equal_nan=True)
 
-    res = calc_exp_het_stats_per_var(
+    res = calc_exp_het_per_var_distrib(
         variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
     assert numpy.allclose(res.mean.loc[DEF_POP_NAME], [0.422619])
@@ -63,7 +63,7 @@ def test_poly_vars_ratio():
     assert numpy.allclose(res["num_poly"].values, [1, 1])
 
     variants.desired_num_vars_per_chunk = 2
-    res = calc_poly_vars_ratio_per_var(
+    res = calc_poly_vars_ratio(
         variants,
         poly_threshold=0.51,
         min_num_samples=3,

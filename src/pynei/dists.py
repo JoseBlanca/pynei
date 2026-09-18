@@ -418,14 +418,14 @@ class _EuclideanCalculator:
         return len(self.indi_names)
 
 
-def _calc_euclidean_pairwise_dists(sample_data: pandas.DataFrame):
+def _calc_pairwise_euclidean_dists(sample_data: pandas.DataFrame):
     dist_between_items_calculator = _EuclideanCalculator(sample_data=sample_data)
     dists, _ = _calc_pairwise_dists_between_pops(dist_between_items_calculator)
     return dists
 
 
-def calc_euclidean_pairwise_dists(sample_data: pandas.DataFrame):
-    return Distances(_calc_euclidean_pairwise_dists(sample_data), sample_data.index)
+def calc_pairwise_euclidean_dists(sample_data: pandas.DataFrame):
+    return Distances(_calc_pairwise_euclidean_dists(sample_data), sample_data.index)
 
 
 def _calc_pairwise_dists_using_embedding(variants, num_processes=2, min_num_snps=None):
@@ -436,7 +436,7 @@ def _calc_pairwise_dists_using_embedding(variants, num_processes=2, min_num_snps
             num_processes=num_processes,
         )
     )
-    return _calc_euclidean_pairwise_dists(dists_between_all_indis_and_some_ref_indis)
+    return _calc_pairwise_euclidean_dists(dists_between_all_indis_and_some_ref_indis)
 
 
 def _calc_pairwise_dists(

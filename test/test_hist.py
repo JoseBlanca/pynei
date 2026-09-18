@@ -3,9 +3,9 @@ import pytest
 
 from pynei import (
     Variants,
-    calc_obs_het_stats_per_var,
-    calc_major_allele_stats_per_var,
-    calc_exp_het_stats_per_var,
+    calc_obs_het_per_var_distrib,
+    calc_maf_per_var_distrib,
+    calc_exp_het_per_var_distrib,
 )
 from pynei.config import BinType, LINEAL, LOGARITHMIC
 from pynei.utils_stats import _prepare_bins
@@ -20,9 +20,9 @@ def _create_vars():
 @pytest.mark.parametrize(
     "calc_stats",
     [
-        calc_obs_het_stats_per_var,
-        calc_major_allele_stats_per_var,
-        calc_exp_het_stats_per_var,
+        calc_obs_het_per_var_distrib,
+        calc_maf_per_var_distrib,
+        calc_exp_het_per_var_distrib,
     ],
 )
 def test_hist_kwargs_is_not_modified(calc_stats):
@@ -39,7 +39,7 @@ def test_hist_kwargs_is_not_modified(calc_stats):
 
 def test_hist_range_can_be_given():
     variants = _create_vars()
-    res = calc_obs_het_stats_per_var(
+    res = calc_obs_het_per_var_distrib(
         variants, hist_kwargs={"num_bins": 2, "range": (0, 0.5)}
     )
     assert numpy.allclose(res.hist_bin_edges, [0, 0.25, 0.5])

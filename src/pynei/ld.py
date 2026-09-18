@@ -60,7 +60,7 @@ class R2Matrix:
 def calc_rogers_huff_r2_matrix(
     variants, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
-    # This function is faster than calc_pairwise_rogers_huff_r2,
+    # This function is faster than iter_rogers_huff_r2,
     # but it uses much more memory
     chunks = list(variants.iter_vars_chunks())
     tot_num_vars = sum(chunk.num_vars for chunk in chunks)
@@ -146,7 +146,7 @@ LDResult = namedtuple(
 )
 
 
-def calc_pairwise_rogers_huff_r2(
+def iter_rogers_huff_r2(
     variants, max_dist: int | None = None, check_no_mafs_above: float | None = 0.95
 ):
     # This is the slower alternative, calc_rogers_huff_r2_matrix is much faster,
@@ -217,7 +217,7 @@ class LDCalcMethod(Enum):
     MATRIX = "matrix"
 
 
-def get_ld_and_dist_for_pops(
+def calc_ld_and_dist_per_pop(
     variants,
     pops: Pops | None = None,
     max_dist: int | None = None,
@@ -243,7 +243,7 @@ def get_ld_and_dist_for_pops(
         if method == LDCalcMethod.GENERATOR:
             lds_and_dists = (
                 (res.r2, res.dist_in_bp)
-                for res in calc_pairwise_rogers_huff_r2(
+                for res in iter_rogers_huff_r2(
                     pop_vars, max_dist=max_dist, check_no_mafs_above=None
                 )
                 if res.dist_in_bp is not None

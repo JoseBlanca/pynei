@@ -121,7 +121,7 @@ def _fill_missing_gts_with_var_mean(mat012):
     return numpy.where(is_missing, var_means[:, numpy.newaxis], mat012)
 
 
-def do_pca_with_vars(variants, transform_to_biallelic=False):
+def do_pca_from_variants(variants, transform_to_biallelic=False):
     """It does a PCA using the 012 matrix of the variants.
 
     The missing genotypes are replaced by the mean of their variant.
@@ -220,7 +220,7 @@ def do_pcoa(dists: Distances):
     )
 
 
-def do_pcoa_with_vars(
+def do_pcoa_from_variants(
     variants, min_num_snps=None, use_approx_embedding_algorithm=False
 ):
     dists = calc_pairwise_kosman_dists(

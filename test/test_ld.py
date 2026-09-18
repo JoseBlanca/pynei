@@ -11,9 +11,9 @@ import pytest
 from pynei.variants import Genotypes, Variants, VariantsChunk
 from pynei.ld import (
     _calc_rogers_huff_r2,
-    calc_pairwise_rogers_huff_r2,
+    iter_rogers_huff_r2,
     calc_rogers_huff_r2_matrix,
-    get_ld_and_dist_for_pops,
+    calc_ld_and_dist_per_pop,
     LDCalcMethod,
 )
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
@@ -257,7 +257,7 @@ def test_pairwiseld():
         [(0, 0), (0, 1), (0, 1), (1, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
     ]
     variants = Variants.from_gt_array(gts)
-    r2s = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(variants)]
+    r2s = [ld_res.r2 for ld_res in iter_rogers_huff_r2(variants)]
     chunk = next(variants.iter_vars_chunks())
     r2_array = _calc_rogers_huff_r2(
         chunk.gts.to_012(),
@@ -268,7 +268,7 @@ def test_pairwiseld():
     # test using several chunks in the calculation
     variants = Variants.from_gt_array(gts)
     variants.desired_num_vars_per_chunk = 2
-    r2s2 = [ld_res.r2 for ld_res in calc_pairwise_rogers_huff_r2(variants)]
+    r2s2 = [ld_res.r2 for ld_res in iter_rogers_huff_r2(variants)]
     assert numpy.allclose(sorted(r2s), sorted(r2s2))
 
     # test distances
@@ -281,7 +281,7 @@ def test_pairwiseld():
     chunk = VariantsChunk(Genotypes(gts), vars_info=vars_info)
     chunk_iter_factory = _FromChunkIterFactory(chunk)
     variants = Variants(chunk_iter_factory)
-    ld_ress = list(calc_pairwise_rogers_huff_r2(variants))
+    ld_ress = list(iter_rogers_huff_r2(variants))
     assert ld_ress[0].chrom_var1 == "1"
     assert ld_ress[0].chrom_var2 == "1"
     assert ld_ress[0].pos_var1 == 10
@@ -289,7 +289,7 @@ def test_pairwiseld():
     dists = sorted([res.dist_in_bp for res in ld_ress if res.dist_in_bp is not None])
     assert dists == [10, 10, 10, 20]
 
-    ld_ress = list(calc_pairwise_rogers_huff_r2(variants, max_dist=15))
+    ld_ress = list(iter_rogers_huff_r2(variants, max_dist=15))
     dists = sorted([res.dist_in_bp for res in ld_ress])
     assert dists == [10, 10, 10]
 
@@ -310,7 +310,7 @@ def test_pairwiseld():
     )
 
     time1 = time.time()
-    r2_results = calc_pairwise_rogers_huff_r2(variants)
+    r2_results = iter_rogers_huff_r2(variants)
     for res in r2_results:
         res.r2
     time2 = time.time()
@@ -341,9 +341,9 @@ def test_ld_vs_dist():
     samples = variants.samples
     pops = {"pop1": samples[:10], "pop2": samples[10:]}
     next(variants.iter_vars_chunks())
-    res = get_ld_and_dist_for_pops(variants, pops=pops, method=LDCalcMethod.MATRIX)
+    res = calc_ld_and_dist_per_pop(variants, pops=pops, method=LDCalcMethod.MATRIX)
     assert sorted(res.keys()) == ["pop1", "pop2"]
-    get_ld_and_dist_for_pops(variants, pops=pops, method=LDCalcMethod.GENERATOR)
+    calc_ld_and_dist_per_pop(variants, pops=pops, method=LDCalcMethod.GENERATOR)
     assert sorted(res.keys()) == ["pop1", "pop2"]
 
 
@@ -372,7 +372,7 @@ def test_ld_for_pops_with_filtered_vars():
     # no var is filtered out by its maf, so both pops see the very same vars
     # and they have to give the same number of measures. Before the fix the
     # second pop only got the vars of the first chunk
-    res = get_ld_and_dist_for_pops(
+    res = calc_ld_and_dist_per_pop(
         variants, pops=pops, max_dist=100000, max_allowed_maf=1
     )
     num_measures_per_pop = {pop: len(list(lds)) for pop, lds in res.items()}

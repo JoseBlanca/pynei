@@ -11,7 +11,7 @@ from pynei.var_filters import (
     filter_samples,
     filter_by_ld_and_maf,
 )
-from pynei.gt_counts import calc_obs_het_stats_per_var
+from pynei.gt_counts import calc_obs_het_per_var_distrib
 from .var_generators import _FromGtListChunkIterFactory
 
 
@@ -343,7 +343,7 @@ def test_sample_filter_metadata_does_not_depend_on_the_call_order():
 
 
 def test_several_vars_can_share_one_filtered_source():
-    # get_ld_and_dist_for_pops creates one Variants per pop on top of a common
+    # calc_ld_and_dist_per_pop creates one Variants per pop on top of a common
     # one, and every one of them has to see all the variations
     gts = GTS_FOR_REITERATION
     for chunk_size in range(1, 5):
@@ -361,8 +361,8 @@ def test_stats_are_calculated_on_all_vars_when_asked_for_twice():
         variants = filter_by_missing_data(
             _create_vars_for_reiteration(chunk_size), max_allowed_missing_rate=1
         )
-        res1 = calc_obs_het_stats_per_var(variants)
-        res2 = calc_obs_het_stats_per_var(variants)
+        res1 = calc_obs_het_per_var_distrib(variants)
+        res2 = calc_obs_het_per_var_distrib(variants)
         assert res1.hist_counts.sum().iloc[0] == 4
         assert numpy.all(res1.hist_counts == res2.hist_counts)
         assert numpy.allclose(res1.mean, res2.mean)

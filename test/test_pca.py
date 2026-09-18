@@ -5,9 +5,9 @@ from pynei.pca import (
     _create_012_gt_matrix,
     create_012_gt_matrix,
     do_pca,
-    do_pca_with_vars,
+    do_pca_from_variants,
     do_pcoa,
-    do_pcoa_with_vars,
+    do_pcoa_from_variants,
 )
 from pynei.variants import Variants
 from .datasets import IRIS
@@ -73,14 +73,14 @@ def test_pca():
         ) or numpy.allclose(expected_princomps[idx], -princomps[idx])
 
 
-def test_pca_vars():
+def test_pca_from_variants():
     numpy.random.seed(seed=42)
     num_vars = 100
     num_indis = 20
     ploidy = 2
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     variants = Variants.from_gt_array(gt_array)
-    do_pca_with_vars(variants)
+    do_pca_from_variants(variants)
 
 
 def test_pcoa():
@@ -93,7 +93,7 @@ def test_pcoa():
     )
 
 
-def test_pcoa_with_vars():
+def test_pcoa_from_variants():
     numpy.random.seed(seed=42)
     num_vars = 100
     num_indis = 20
@@ -101,8 +101,8 @@ def test_pcoa_with_vars():
     gt_array = numpy.random.randint(0, 2, size=(num_vars, num_indis, ploidy))
     variants = Variants.from_gt_array(gt_array)
 
-    do_pcoa_with_vars(variants, use_approx_embedding_algorithm=True)
-    do_pcoa_with_vars(variants, use_approx_embedding_algorithm=False)
+    do_pcoa_from_variants(variants, use_approx_embedding_algorithm=True)
+    do_pcoa_from_variants(variants, use_approx_embedding_algorithm=False)
 
 
 def test_mat012_keeps_the_missing_gts():
@@ -128,7 +128,7 @@ def test_pca_vars_with_missing_gts():
     samples += [f"pop2_{idx}" for idx in range(num_samples_pop2)]
     variants = Variants.from_gt_array(gt_array, samples=samples)
 
-    projections = do_pca_with_vars(variants).projections
+    projections = do_pca_from_variants(variants).projections
     pc1 = projections.iloc[:, 0]
     sample_with_missing = pc1.iloc[0]
     pop1 = pc1.iloc[1:num_samples_pop1].mean()

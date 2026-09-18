@@ -10,7 +10,7 @@ from pynei.config import (
 )
 from pynei.gt_counts import _count_alleles_per_var, _calc_maf_per_var
 from pynei.utils_pop import Pops, _calc_pops_idxs
-from pynei.utils_stats import _calc_stats_per_var
+from pynei.utils_stats import _calc_per_var_distrib
 from pynei.pipeline import Pipeline
 
 
@@ -86,7 +86,7 @@ def _calc_unbiased_exp_het_per_var(
     }
 
 
-def calc_exp_het_stats_per_var(
+def calc_exp_het_per_var_distrib(
     variants,
     pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
@@ -102,7 +102,7 @@ def calc_exp_het_stats_per_var(
     else:
         calc_het_funct = _calc_exp_het_per_var
 
-    return _calc_stats_per_var(
+    return _calc_per_var_distrib(
         variants=variants,
         calc_stats_for_chunk=partial(
             calc_het_funct,
@@ -173,7 +173,7 @@ def _accumulate_pop_sums(
     return accumulated_result
 
 
-def calc_poly_vars_ratio_per_var(
+def calc_poly_vars_ratio(
     variants,
     poly_threshold=DEF_POLY_THRESHOLD,
     pops: Pops | None = None,

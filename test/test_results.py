@@ -12,13 +12,13 @@ from pynei import (
     PolyVarsStats,
     R2Matrix,
     StatsDistrib,
-    calc_exp_het_stats_per_var,
-    calc_major_allele_stats_per_var,
-    calc_obs_het_stats_per_var,
-    calc_poly_vars_ratio_per_var,
+    calc_exp_het_per_var_distrib,
+    calc_maf_per_var_distrib,
+    calc_obs_het_per_var_distrib,
+    calc_poly_vars_ratio,
     calc_rogers_huff_r2_matrix,
-    do_pca_with_vars,
-    do_pcoa_with_vars,
+    do_pca_from_variants,
+    do_pcoa_from_variants,
     filter_by_maf,
     gather_filtering_stats,
 )
@@ -55,12 +55,12 @@ def test_the_results_are_frozen_dataclasses_with_documented_fields(result_class)
 @pytest.mark.parametrize(
     "calc_stats",
     [
-        calc_obs_het_stats_per_var,
-        calc_major_allele_stats_per_var,
-        calc_exp_het_stats_per_var,
+        calc_obs_het_per_var_distrib,
+        calc_maf_per_var_distrib,
+        calc_exp_het_per_var_distrib,
     ],
 )
-def test_the_stats_per_var_give_a_stats_distrib(calc_stats):
+def test_the_per_var_distribs(calc_stats):
     res = calc_stats(_create_vars(), hist_kwargs={"num_bins": 4})
     assert isinstance(res, StatsDistrib)
     assert res.mean.shape == (1,)
@@ -72,19 +72,19 @@ def test_the_stats_per_var_give_a_stats_distrib(calc_stats):
 
 
 def test_poly_vars_ratio_gives_a_poly_vars_stats():
-    res = calc_poly_vars_ratio_per_var(_create_vars(), min_num_samples=1)
+    res = calc_poly_vars_ratio(_create_vars(), min_num_samples=1)
     assert isinstance(res, PolyVarsStats)
     assert res.poly_ratio.shape == (1,)
 
 
 def test_the_pca_and_the_pcoa_give_their_own_results():
-    res = do_pca_with_vars(_create_vars())
+    res = do_pca_from_variants(_create_vars())
     assert isinstance(res, PCAResult)
     assert res.projections.shape[0] == 25
     assert res.explained_variance_percent.sum() == pytest.approx(100)
     assert res.princomps.shape[0] == res.projections.shape[1]
 
-    res = do_pcoa_with_vars(_create_vars())
+    res = do_pcoa_from_variants(_create_vars())
     assert isinstance(res, PCoAResult)
     assert res.projections.shape[0] == 25
     assert not hasattr(res, "princomps")

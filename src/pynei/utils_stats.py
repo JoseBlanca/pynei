@@ -94,7 +94,7 @@ def _collect_stats_from_pop_dframes(
     return accumulated_result
 
 
-def _calc_stats_per_var(
+def _calc_per_var_distrib(
     variants,
     calc_stats_for_chunk,
     get_stats_for_chunk_result,

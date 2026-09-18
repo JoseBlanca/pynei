@@ -1,22 +1,23 @@
 from pynei.variants import Variants
 from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
-from pynei.gt_counts import calc_obs_het_stats_per_var, calc_major_allele_stats_per_var
+from pynei.gt_counts import calc_obs_het_per_var_distrib, calc_maf_per_var_distrib
 from pynei.diversity import (
     PolyVarsStats,
-    calc_exp_het_stats_per_var,
-    calc_poly_vars_ratio_per_var,
+    calc_exp_het_per_var_distrib,
+    calc_poly_vars_ratio,
 )
 from pynei.utils_stats import StatsDistrib
 from pynei.pca import (
     PCAResult,
     PCoAResult,
-    do_pca_with_vars,
+    do_pca_from_variants,
     do_pca,
     do_pcoa,
-    do_pcoa_with_vars,
+    do_pcoa_from_variants,
 )
 from pynei.dists import (
     Distances,
+    calc_pairwise_euclidean_dists,
     calc_pairwise_kosman_dists,
     calc_jost_dest_pop_dists,
 )
@@ -33,9 +34,9 @@ from pynei.var_filters import (
 from pynei.ld import (
     LDResult,
     R2Matrix,
-    get_ld_and_dist_for_pops,
+    calc_ld_and_dist_per_pop,
     calc_rogers_huff_r2_matrix,
-    calc_pairwise_rogers_huff_r2,
+    iter_rogers_huff_r2,
 )
 from pynei.io_vars import write_vars, load_vars
 from pynei.sample_stats import calc_per_sample_stats
@@ -49,29 +50,30 @@ __all__ = [
     "PolyVarsStats",
     "R2Matrix",
     "StatsDistrib",
-    "Variants",
     "VAR_TABLE_CHROM_COL",
     "VAR_TABLE_POS_COL",
-    "calc_exp_het_stats_per_var",
+    "Variants",
+    "calc_exp_het_per_var_distrib",
     "calc_jost_dest_pop_dists",
-    "calc_major_allele_stats_per_var",
-    "calc_obs_het_stats_per_var",
+    "calc_ld_and_dist_per_pop",
+    "calc_maf_per_var_distrib",
+    "calc_obs_het_per_var_distrib",
+    "calc_pairwise_euclidean_dists",
     "calc_pairwise_kosman_dists",
-    "calc_pairwise_rogers_huff_r2",
     "calc_per_sample_stats",
-    "calc_poly_vars_ratio_per_var",
+    "calc_poly_vars_ratio",
     "calc_rogers_huff_r2_matrix",
     "do_pca",
-    "do_pca_with_vars",
+    "do_pca_from_variants",
     "do_pcoa",
-    "do_pcoa_with_vars",
+    "do_pcoa_from_variants",
     "filter_by_ld_and_maf",
     "filter_by_maf",
     "filter_by_missing_data",
     "filter_by_obs_het",
     "filter_samples",
     "gather_filtering_stats",
-    "get_ld_and_dist_for_pops",
+    "iter_rogers_huff_r2",
     "load_vars",
     "vars_from_vcf",
     "write_vars",

@@ -3,8 +3,8 @@ from pynei.variants import Variants
 from pynei.gt_counts import (
     _calc_gt_is_het,
     _calc_obs_het_per_var,
-    calc_obs_het_stats_per_var,
-    calc_major_allele_stats_per_var,
+    calc_obs_het_per_var_distrib,
+    calc_maf_per_var_distrib,
     _count_alleles_per_var,
     _calc_maf_per_var,
 )
@@ -51,7 +51,7 @@ def test_obs_het_stats():
     assert res["obs_het_per_var"].values.shape == (3, 2)
 
     pop_name = pynei.config.DEF_POP_NAME
-    res = calc_obs_het_stats_per_var(variants, hist_kwargs={"num_bins": 4})
+    res = calc_obs_het_per_var_distrib(variants, hist_kwargs={"num_bins": 4})
     assert numpy.allclose(res.mean.loc[pop_name], [0.5])
     assert numpy.allclose(res.hist_bin_edges, [0.0, 0.25, 0.5, 0.75, 1.0])
     assert all(res.hist_counts[pop_name] == [0, 1, 1, 0])
@@ -158,7 +158,7 @@ def test_maf_stats():
         equal_nan=True,
     )
 
-    res = calc_major_allele_stats_per_var(
+    res = calc_maf_per_var_distrib(
         variants, hist_kwargs={"num_bins": 4}, min_num_samples=1
     )
     pop_name = pynei.config.DEF_POP_NAME
@@ -180,7 +180,7 @@ def test_maf_stats():
     assert numpy.allclose(mafs.values, numpy.array(expected), equal_nan=True)
     assert list(mafs.columns) == ["pop1", "pop2"]
 
-    res = calc_major_allele_stats_per_var(
+    res = calc_maf_per_var_distrib(
         variants,
         hist_kwargs={"num_bins": 20},
         min_num_samples=3,

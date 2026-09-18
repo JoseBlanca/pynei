@@ -7,7 +7,7 @@ import pandas
 from pynei.dists import (
     Distances,
     _KosmanDistCalculator,
-    calc_euclidean_pairwise_dists,
+    calc_pairwise_euclidean_dists,
     calc_jost_dest_pop_dists,
     _DestDistCalculator,
 )
@@ -219,7 +219,7 @@ def test_euclidean_dists():
     num_traits = 10
     numpy.random.seed(42)
     samples = pandas.DataFrame(numpy.random.uniform(size=(num_samples, num_traits)))
-    dists = calc_euclidean_pairwise_dists(samples)
+    dists = calc_pairwise_euclidean_dists(samples)
     expected = [0.8160523, 1.4245896, 1.74402628, 1.37436733, 1.84068677, 1.00002389]
     assert numpy.allclose(dists.dist_vector, expected)
 

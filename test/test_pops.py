@@ -3,12 +3,12 @@ import pytest
 
 from pynei import (
     Variants,
-    calc_obs_het_stats_per_var,
-    calc_major_allele_stats_per_var,
-    calc_exp_het_stats_per_var,
-    calc_poly_vars_ratio_per_var,
+    calc_obs_het_per_var_distrib,
+    calc_maf_per_var_distrib,
+    calc_exp_het_per_var_distrib,
+    calc_poly_vars_ratio,
     calc_jost_dest_pop_dists,
-    get_ld_and_dist_for_pops,
+    calc_ld_and_dist_per_pop,
 )
 from pynei.utils_pop import _calc_pops_idxs
 
@@ -36,7 +36,7 @@ def test_a_sample_that_is_not_in_the_variants_is_reported():
 
 
 def test_pops_have_to_be_sequences_of_sample_names():
-    # a slice used to work only in get_ld_and_dist_for_pops
+    # a slice used to work only in calc_ld_and_dist_per_pop
     with pytest.raises(ValueError, match="sequence of sample names"):
         _calc_pops_idxs({"pop1": slice(3)}, SAMPLES)
     # a single sample name is not a sequence of sample names
@@ -48,16 +48,16 @@ def test_pops_need_samples_in_the_variants():
     gts = numpy.random.randint(0, 2, size=(10, 6, 2))
     variants = Variants.from_gt_array(gts)
     with pytest.raises(ValueError, match="should have samples"):
-        calc_obs_het_stats_per_var(variants, pops=POPS)
+        calc_obs_het_per_var_distrib(variants, pops=POPS)
 
 
 @pytest.mark.parametrize(
     "calc_stats",
     [
-        calc_obs_het_stats_per_var,
-        calc_major_allele_stats_per_var,
-        calc_exp_het_stats_per_var,
-        calc_poly_vars_ratio_per_var,
+        calc_obs_het_per_var_distrib,
+        calc_maf_per_var_distrib,
+        calc_exp_het_per_var_distrib,
+        calc_poly_vars_ratio,
     ],
 )
 def test_every_stat_takes_the_same_pops(calc_stats):
@@ -78,8 +78,8 @@ def test_jost_dest_takes_the_same_pops():
 
 
 def test_ld_for_pops_takes_the_same_pops():
-    res = get_ld_and_dist_for_pops(_create_vars(), pops=POPS, max_allowed_maf=1)
+    res = calc_ld_and_dist_per_pop(_create_vars(), pops=POPS, max_allowed_maf=1)
     assert sorted(res.keys()) == ["pop1", "pop2"]
 
     with pytest.raises(ValueError, match="not in the variants"):
-        get_ld_and_dist_for_pops(_create_vars(), pops={"pop1": ["nope"]})
+        calc_ld_and_dist_per_pop(_create_vars(), pops={"pop1": ["nope"]})

@@ -5,7 +5,7 @@ import pandas
 
 from pynei.config import MIN_NUM_SAMPLES_FOR_POP_STAT, DEF_POP_NAME, MISSING_ALLELE
 from pynei.utils_pop import Pops, _calc_pops_idxs
-from pynei.utils_stats import _calc_stats_per_var
+from pynei.utils_stats import _calc_per_var_distrib
 
 
 def _calc_gt_is_missing(chunk, partial_res=None):
@@ -60,14 +60,14 @@ def _calc_obs_het_per_var(chunk, pops):
     }
 
 
-def calc_obs_het_stats_per_var(
+def calc_obs_het_per_var_distrib(
     variants,
     pops: Pops | None = None,
     hist_kwargs=None,
 ):
     pops = _calc_pops_idxs(pops, variants.samples)
 
-    return _calc_stats_per_var(
+    return _calc_per_var_distrib(
         variants=variants,
         calc_stats_for_chunk=partial(_calc_obs_het_per_var, pops=pops),
         get_stats_for_chunk_result=lambda x: x["obs_het_per_var"],
@@ -159,7 +159,7 @@ def _calc_maf_per_var(
     return {"major_allele_freqs_per_var": major_allele_freqs}
 
 
-def calc_major_allele_stats_per_var(
+def calc_maf_per_var_distrib(
     variants,
     pops: Pops | None = None,
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
@@ -168,7 +168,7 @@ def calc_major_allele_stats_per_var(
     samples = variants.samples
     pops = _calc_pops_idxs(pops, samples)
 
-    return _calc_stats_per_var(
+    return _calc_per_var_distrib(
         variants=variants,
         calc_stats_for_chunk=partial(
             _calc_maf_per_var, pops=pops, min_num_samples=min_num_samples
