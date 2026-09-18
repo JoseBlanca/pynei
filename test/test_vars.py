@@ -214,3 +214,51 @@ def test_duplicated_samples_are_refused():
     gt_array = numpy.random.randint(0, 2, size=(3, 4, 2))
     with pytest.raises(ValueError, match="Duplicated sample names"):
         Genotypes(gt_array, samples=["a", "b", "a", "b"])
+
+
+def _create_chunk(chroms, poss, alleles=None, num_samples=4, ploidy=2):
+    num_vars = len(poss)
+    vars_info = pandas.DataFrame(
+        {
+            VAR_TABLE_CHROM_COL: pandas.Series(chroms, dtype=pandas.StringDtype()),
+            VAR_TABLE_POS_COL: pandas.Series(poss, dtype=pandas.Int32Dtype()),
+        }
+    )
+    gt_array = numpy.ma.array(
+        numpy.random.randint(0, 2, size=(num_vars, num_samples, ploidy))
+    )
+    gts = Genotypes(gt_array, samples=create_sample_names(gt_array))
+    if alleles is not None:
+        alleles = pandas.DataFrame(alleles, dtype=pandas.StringDtype())
+    return VariantsChunk(gts=gts, vars_info=vars_info, alleles=alleles)
+
+
+def test_the_tables_of_a_chunk_are_indexed_from_zero():
+    """However the chunks were split and joined again, every chunk has to have
+    its tables indexed from 0 to num_vars - 1, or the row labels of a
+    concatenated chunk repeat themselves and .loc gives several rows."""
+
+    class Factory:
+        def _get_metadata(self):
+            return {
+                "samples": create_sample_names(numpy.zeros((1, 4, 2))),
+                "num_samples": 4,
+                "ploidy": 2,
+            }
+
+        def iter_vars_chunks(self):
+            yield _create_chunk(["c1"] * 3, [1, 2, 3], alleles=[["A", "T"]] * 3)
+            yield _create_chunk(["c1"] * 3, [4, 5, 6], alleles=[["A", "G"]] * 3)
+
+    variants = Variants(Factory(), desired_num_vars_per_chunk=6)
+    chunk = next(variants.iter_vars_chunks())
+    assert chunk.num_vars == 6
+    assert list(chunk.vars_info.index) == list(range(6))
+    assert list(chunk.alleles.index) == list(range(6))
+    assert chunk.vars_info.loc[4, VAR_TABLE_POS_COL] == 5
+
+    # and the same when a chunk is split into smaller ones
+    variants = Variants(Factory(), desired_num_vars_per_chunk=2)
+    for chunk in variants.iter_vars_chunks():
+        assert list(chunk.vars_info.index) == list(range(chunk.num_vars))
+        assert list(chunk.alleles.index) == list(range(chunk.num_vars))

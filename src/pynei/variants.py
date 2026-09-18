@@ -194,6 +194,20 @@ class Genotypes:
 ArrayType = tuple[numpy.ndarray, pandas.DataFrame, pandas.Series, Genotypes]
 
 
+def _index_from_zero(dframe):
+    """The tables of a chunk are always indexed from 0 to num_vars - 1.
+
+    The chunks are split and joined again as they are read, and pandas keeps
+    the row labels the tables had in the chunks they came from, so without
+    this a joined table has repeated labels and loc gives several rows for
+    one variant.
+    """
+    index = dframe.index
+    if isinstance(index, pandas.RangeIndex) and index.start == 0 and index.step == 1:
+        return dframe
+    return dframe.reset_index(drop=True)
+
+
 def _normalize_pandas_types(dframe):
     new_dframe = {}
     for col, values in dframe.items():
@@ -226,11 +240,12 @@ class VariantsChunk:
                 raise ValueError(
                     "variants_info must have the same number of rows as gts"
                 )
-            vars_info = _normalize_pandas_types(vars_info)
+            vars_info = _normalize_pandas_types(_index_from_zero(vars_info))
 
         if alleles is not None:
             if alleles.shape[0] != gts.num_vars:
                 raise ValueError("alleles must have the same number of rows as gts")
+            alleles = _index_from_zero(alleles)
 
         self._arrays = {"gts": gts, "vars_info": vars_info, "alleles": alleles}
         self._gt_array = gts
