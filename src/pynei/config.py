@@ -58,21 +58,14 @@ DEF_POP_NAME = "pop"
 MIN_NUM_SAMPLES_FOR_POP_STAT = 20
 MISSING_ALLELE = -1
 
-
-class Compression(StrEnum):
-    """How the genotypes of a vars file are compressed.
-
-    ZSTD makes the file about six times smaller and NONE makes it about five
-    times faster to read. In a browser there is no disk, the file is held in
-    memory and it has to be downloaded first, so there ZSTD is the one that
-    works.
-    """
-
-    ZSTD = "zstd"
-    NONE = "none"
-
-
-DEF_VARS_COMPRESSION = Compression.ZSTD
+# The genotypes of a vars file are always compressed with zstd. Not
+# compressing them makes them about five times faster to read, but the chunks
+# are read one ahead in a thread of their own, and that hides the reading
+# behind the work: the two of them only differ once there are more threads
+# working than one reader can feed, about six of them, and pynei is made to
+# run on a personal computer. A browser needs the small file anyway, there the
+# file is downloaded and then held in memory
+VARS_COMPRESSION = "zstd"
 
 # How many chunks are read ahead of the work, in a thread of their own.
 # Reading a chunk is decompressing it in arrow or parsing a VCF, and both of

@@ -8,7 +8,6 @@ import pyarrow.ipc
 
 from pynei.variants import Variants, Genotypes, VariantsChunk
 import pynei.config as config
-from pynei.config import Compression
 
 
 # 2.0 is one arrow IPC (feather v2) file, one record batch per chunk. 1.x was
@@ -19,9 +18,6 @@ GTS_COL = "gts"
 ALLELES_COL = "alleles"
 FILE_METADATA_KEY = b"pynei"
 CHUNK_METADATA_KEY = b"pynei_chunk"
-
-# the arrow codec each member of the enum asks for, None being no compression
-_ARROW_COMPRESSION = {Compression.ZSTD: "zstd", Compression.NONE: None}
 
 _OLD_DIR_FORMAT_ERROR = (
     "{path} is a dir, so it is a vars dir of the old 1.x format, which is not "
@@ -82,23 +78,14 @@ def _chunk_range(vars_info) -> dict:
     }
 
 
-def write_vars(
-    variants: Variants,
-    path: Path,
-    compression: Compression = config.DEF_VARS_COMPRESSION,
-):
+def write_vars(variants: Variants, path: Path):
     """It writes the variants into one vars file, to read them back fast.
 
     The chunks go in at the size the variants hand them out, which is the size
     a calculation asks for by default, so that reading them back does not have
     to join them and slice them again.
-
-    ZSTD makes the file about six times smaller, NONE about five times faster
-    to read. A file that has to be read in a browser wants ZSTD, because there
-    it has to be downloaded and it is held in memory.
     """
     path = Path(path)
-    compression = Compression(compression)
     if path.exists():
         raise ValueError(f"The path to write the variants into is already used: {path}")
 
@@ -110,9 +97,7 @@ def write_vars(
         "gts_dtype": numpy.dtype(config.GT_NUMPY_DTYPE).name,
         "missing_allele": config.MISSING_ALLELE,
     }
-    write_options = pyarrow.ipc.IpcWriteOptions(
-        compression=_ARROW_COMPRESSION[compression]
-    )
+    write_options = pyarrow.ipc.IpcWriteOptions(compression=config.VARS_COMPRESSION)
 
     schema = None
     sink = None

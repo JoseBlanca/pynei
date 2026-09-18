@@ -43,33 +43,23 @@ A genotype is one byte, so an allele goes from 0 to 127 and a missing one is
 -1. Nothing else is written: the missing genotypes are already -1 in the
 values, so there is no mask to keep beside them.
 
-You choose how the genotypes are compressed when you write the file:
+The genotypes are compressed with zstd, and that is not something to choose.
+Over 50000 variants and 1000 samples, 100 million genotypes, the file is 18 MB
+where it would be 103 MB uncompressed, and reading it takes 0.094 s where the
+uncompressed one takes 0.019 s. That five times slower reading does not show in
+a calculation, because the chunks are read one ahead in a thread of their own
+and the reading happens while the work is being done. Over 100000 variants and
+1000 samples:
 
-```python
-pynei.write_vars(variants, "variants.vars", compression=pynei.Compression.NONE)
-```
+|              | 1 thread | 2      | 4      | 6      |
+| ------------ | -------- | ------ | ------ | ------ |
+| zstd         | 1.549 s  | 0.805  | 0.438  | 0.353  |
+| uncompressed | 1.543 s  | 0.792  | 0.425  | 0.344  |
 
-Over 50000 variants and 1000 samples, 100 million genotypes:
-
-| compression | file   | write  | reading it, and nothing else |
-| ----------- | ------ | ------ | ---------------------------- |
-| `ZSTD`      |  18 MB | 0.14 s | 0.094 s                      |
-| `NONE`      | 103 MB | 0.01 s | 0.019 s                      |
-
-`ZSTD` is the default. `NONE` is five times faster to read, because the
-genotypes are mapped straight from the file into the arrays without being
-copied, but that hardly shows in a calculation, because the chunks are read one
-ahead in a thread of their own and the reading happens while the work is being
-done. Over 100000 variants and 1000 samples:
-
-| compression | 1 thread | 2      | 4      | 6      |
-| ----------- | -------- | ------ | ------ | ------ |
-| `ZSTD`      | 1.549 s  | 0.805  | 0.438  | 0.353  |
-| `NONE`      | 1.543 s  | 0.792  | 0.425  | 0.344  |
-
-So `NONE` is only worth its six times the disk when the work done on every
-chunk is smaller than reading it, and `ZSTD` is the one a browser needs anyway,
-where the file has to be downloaded first and is then held in memory.
+They only come apart once there are more threads working than one reader can
+feed, which is at about six of them, and pynei is made to run on a personal
+computer. A browser wants the small file anyway, there it has to be downloaded
+first and is then held in memory.
 
 `calc_per_var_distribs` calculates several statistics in one pass, sharing the
 allele counts between them, so ask it for everything you need at once instead of

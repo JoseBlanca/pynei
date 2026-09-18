@@ -1,5 +1,5 @@
 from pynei.variants import Variants
-from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL, Compression
+from pynei.config import VAR_TABLE_POS_COL, VAR_TABLE_CHROM_COL
 from pynei.diversity import PolyVarsStats
 from pynei.per_var_stats import PerVarDistribs, PerVarStat, calc_per_var_distribs
 from pynei.utils_stats import StatsDistrib
@@ -38,7 +38,6 @@ from pynei.io_vars import write_vars, load_vars
 from pynei.sample_stats import calc_per_sample_stats
 
 __all__ = [
-    "Compression",
     "Distances",
     "FilteringStats",
     "LDResult",

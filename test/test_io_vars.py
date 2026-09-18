@@ -9,7 +9,6 @@ from .var_generators import create_sample_names
 
 from pynei.variants import VariantsChunk, Variants, Genotypes, calc_num_vars_per_chunk
 import pynei.config as config
-from pynei.config import Compression
 from pynei.io_vars import write_vars, load_vars, VariantsFile, VARS_FORMAT_VERSION
 from pynei.io_vcf import vars_from_vcf
 from .test_vcf import VCF_45
@@ -152,28 +151,35 @@ def test_alleles_with_different_counts_in_different_chunks():
         ]
 
 
-@pytest.mark.parametrize("compression", [Compression.ZSTD, Compression.NONE, "zstd"])
-def test_the_compression_is_chosen_when_writing(compression):
-    chunk_factory = _ChunkFactory(["c1"] * 5, [1, 2, 3, 4, 5], num_samples=6, ploidy=2)
+def test_the_genotypes_are_compressed():
+    """They are always compressed, it is not something to choose. Reading one
+    chunk ahead hides the decompression behind the work, so it costs nothing
+    until there are more threads working than one reader can feed."""
+    num_vars, num_samples = 500, 20
+    chunk_factory = _ChunkFactory(
+        ["c1"] * num_vars, list(range(num_vars)), num_samples=num_samples, ploidy=2
+    )
     orig_chunk = chunk_factory.chunk
     variants = Variants(chunk_factory)
     with tempfile.TemporaryDirectory() as tempdir:
         path = _create_path(tempdir)
-        write_vars(variants, path, compression=compression)
+        write_vars(variants, path)
+        raw_size = num_vars * num_samples * 2
+        assert path.stat().st_size < raw_size
         chunk = next(load_vars(path).iter_vars_chunks())
         assert numpy.array_equal(chunk.gts.gt_values, orig_chunk.gts.gt_values)
 
 
-def test_an_uncompressed_file_is_read_without_copying_the_genotypes():
+def test_the_genotypes_are_read_without_being_copied_into_numpy():
     chunk_factory = _ChunkFactory(["c1"] * 5, [1, 2, 3, 4, 5], num_samples=6, ploidy=2)
     variants = Variants(chunk_factory)
     with tempfile.TemporaryDirectory() as tempdir:
         path = _create_path(tempdir)
-        write_vars(variants, path, compression=Compression.NONE)
+        write_vars(variants, path)
         chunk = next(load_vars(path).iter_vars_chunks())
         gts = chunk.gts.gt_values
-        # the array is a view on the mapped file, not a copy of it, and it is
-        # read only so that nothing can write on the file through it
+        # the array is a view on the buffer arrow read, not a copy of it, and
+        # it is read only so that nothing can write on it through it
         assert not gts.flags.writeable
         assert not gts.flags.owndata
 
