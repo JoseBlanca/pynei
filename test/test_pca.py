@@ -177,3 +177,26 @@ def test_mat012_with_no_variants():
     )
     with pytest.raises(ValueError, match="no variants"):
         create_012_gt_matrix(variants)
+
+
+def test_mat012_with_threads_is_the_same_as_without():
+    rng = numpy.random.default_rng(0)
+    gt_array = rng.integers(0, 2, size=(500, 8, 2))
+    # two samples fixed for either allele, so that no variant is monomorphic,
+    # a monomorphic variant has no variance and do_pca can not standardize it
+    gt_array[:, 0, :] = 0
+    gt_array[:, 1, :] = 1
+    samples = [f"sample_{idx}" for idx in range(8)]
+
+    def create_vars():
+        variants = Variants.from_gt_array(gt_array, samples=samples)
+        variants.desired_num_vars_per_chunk = 5
+        return variants
+
+    serial = create_012_gt_matrix(create_vars())
+    for num_processes in (2, 4):
+        threaded = create_012_gt_matrix(create_vars(), num_processes=num_processes)
+        assert numpy.array_equal(threaded, serial)
+
+    projections = do_pca_from_variants(create_vars(), num_processes=4).projections
+    assert numpy.allclose(projections, do_pca_from_variants(create_vars()).projections)

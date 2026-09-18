@@ -9,7 +9,9 @@ dependencies = [
     "numpy>=2.4.6",
     "pandas>=3.0.2",
     "pyarrow>=22.0.0",
-    "threaded-map-reduce>=0.1.1",
+    # 0.1.2 is the first one whose map() does not drop results when the
+    # work reaches more than one thread
+    "threaded-map-reduce>=0.1.2",
 ]
 
 [build-system]

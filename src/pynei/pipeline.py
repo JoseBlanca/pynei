@@ -81,15 +81,8 @@ class Pipeline:
             raise ValueError(
                 "For mapping reduce_funct and reduce_initializer must be None"
             )
-        if num_processes > 1:
-            # threaded_map_reduce 0.1.1 map() silently drops results: every
-            # worker enumerates the chunk dispenser on its own, so the idx that
-            # orders the results is local to the thread and the chunks that two
-            # threads number alike overwrite each other. map_reduce, which is
-            # what map_and_reduce uses, does not order anything and is fine.
-            raise NotImplementedError(
-                "Mapping the chunks with more than one thread is not implemented yet"
-            )
+        # threaded_map_reduce.map keeps the order of the items, so the chunks
+        # come out in the order of the variants however many threads run
         return self._process_vars(variants, num_processes)
 
     def map_and_reduce(self, variants, num_processes: int = 1):

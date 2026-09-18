@@ -51,15 +51,16 @@ def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
     return gts012
 
 
-def create_012_gt_matrix(variants, transform_to_biallelic=False):
+def create_012_gt_matrix(variants, transform_to_biallelic=False, num_processes=1):
     create_012_matrix = partial(
         _create_012_gt_matrix, transform_to_biallelic=transform_to_biallelic
     )
     pipeline = Pipeline(map_functs=[create_012_matrix])
     # The matrices of the chunks are kept and stacked once, at the end, because
     # vstack copies everything that it has already stacked every time, and that
-    # makes building the matrix quadratic in the number of chunks
-    chunk_matrices = list(pipeline.map_chunks(variants))
+    # makes building the matrix quadratic in the number of chunks.
+    # map_chunks keeps the order of the chunks, threads or not.
+    chunk_matrices = list(pipeline.map_chunks(variants, num_processes=num_processes))
     if not chunk_matrices:
         raise ValueError("There are no variants to build the 012 matrix from")
     return numpy.vstack(chunk_matrices)
@@ -120,13 +121,15 @@ def _fill_missing_gts_with_var_mean(mat012):
     return numpy.where(is_missing, var_means[:, numpy.newaxis], mat012)
 
 
-def do_pca_from_variants(variants, transform_to_biallelic=False):
+def do_pca_from_variants(variants, transform_to_biallelic=False, num_processes=1):
     """It does a PCA using the 012 matrix of the variants.
 
     The missing genotypes are replaced by the mean of their variant.
     """
     mat012 = create_012_gt_matrix(
-        variants, transform_to_biallelic=transform_to_biallelic
+        variants,
+        transform_to_biallelic=transform_to_biallelic,
+        num_processes=num_processes,
     )
     mat012 = _fill_missing_gts_with_var_mean(mat012)
     mat012 = pandas.DataFrame(mat012.T, index=variants.samples)

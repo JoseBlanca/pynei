@@ -379,7 +379,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "pyarrow", specifier = ">=22.0.0" },
-    { name = "threaded-map-reduce", specifier = ">=0.1.1" },
+    { name = "threaded-map-reduce", specifier = ">=0.1.2" },
 ]
 
 [package.metadata.requires-dev]
@@ -540,11 +540,11 @@ wheels = [
 
 [[package]]
 name = "threaded-map-reduce"
-version = "0.1.1"
+version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/75/68/fa973dca7bff1809956a8afbd51093f07bf400539ea17d283328b1322485/threaded_map_reduce-0.1.1.tar.gz", hash = "sha256:eddb600eae7ae3889883fccc4db5e516496980b4e03c2a30849c5b369f8040bb", size = 141376, upload-time = "2025-11-30T10:52:26.768Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/54/ad0e351719ffa44ecd4c58289000b6357f6565542baebc27bdbb1d448551/threaded_map_reduce-0.1.2.tar.gz", hash = "sha256:00cef2fe29c4bb8c48fee16c88dfd125fdb8341a891dfce5716a8dd7a96a2c6c", size = 142324, upload-time = "2026-09-18T08:22:06.764Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/c8/c2931e6faf8a38d2e1a039a8d6aab0eee76efc9c30a9a5fdfee9f20014d8/threaded_map_reduce-0.1.1-py3-none-any.whl", hash = "sha256:0589bd4cef3577552a541200300ef6ed6d3c5f3c68869f0853d564433776c73b", size = 9088, upload-time = "2025-11-30T10:52:28.707Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/0c/4ab057028ed92400ef900addd61b9a49e28d69979948d87be5742e299da5/threaded_map_reduce-0.1.2-py3-none-any.whl", hash = "sha256:4ecfe2e9a47f4ddbcb31418c1f48a05cca69411654efee8cc0ffceb525613765", size = 9252, upload-time = "2026-09-18T08:22:05.68Z" },
 ]
 
 [[package]]
