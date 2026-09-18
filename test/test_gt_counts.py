@@ -1,3 +1,4 @@
+import pytest
 import numpy
 
 from .var_generators import create_sample_names
@@ -194,3 +195,61 @@ def test_maf_stats():
     assert numpy.all(numpy.equal(res.hist_counts["pop1"], expected))
     expected = numpy.linspace(0, 1, 21)
     assert numpy.allclose(list(res.hist_bin_edges), expected)
+
+
+def test_the_alleles_to_count_can_be_given():
+    """The columns are the given alleles, however many of them the chunk has,
+    so that the counts of different chunks can be put side by side."""
+    gts = numpy.array(
+        [
+            [[0, 0], [1, 1], [-1, -1], [0, 1]],
+            [[0, 1], [0, 0], [0, 1], [1, 0]],
+        ]
+    )
+    chunk = next(Variants.from_gt_array(gts, samples=[1, 2, 3, 4]).iter_vars_chunks())
+
+    res = _count_alleles_per_var(chunk, calc_freqs=False, alleles=[0, 1, 2, 3])
+    allele_counts = res["counts"][pynei.config.DEF_POP_NAME]["allele_counts"]
+    assert allele_counts.columns.tolist() == [0, 1, 2, 3]
+    assert numpy.array_equal(allele_counts.values, [[3, 3, 0, 0], [5, 3, 0, 0]])
+    # what the chunk really has is still said apart
+    assert res["alleles"] == {0, 1}
+
+    # and an allele that the chunk has but was not given is an error, not a
+    # count silently left out
+    with pytest.raises(RuntimeError, match="not present in the given ones"):
+        _count_alleles_per_var(chunk, calc_freqs=False, alleles=[0])
+
+
+def test_a_genotype_below_the_missing_allele_is_refused():
+    gts = numpy.array([[[0, 0], [1, -2], [0, 1]]])
+    chunk = next(Variants.from_gt_array(gts, samples=[1, 2, 3]).iter_vars_chunks())
+    with pytest.raises(ValueError, match="-2"):
+        _count_alleles_per_var(chunk, calc_freqs=False)
+
+
+def test_the_counted_alleles_are_the_ones_there_are():
+    # the alleles are counted up to the biggest one, and the ones in between
+    # that no genotype has are not columns
+    gts = numpy.array([[[0, 0], [5, 5], [0, 5]], [[0, 0], [-1, -1], [5, 5]]])
+    chunk = next(Variants.from_gt_array(gts, samples=[1, 2, 3]).iter_vars_chunks())
+    res = _count_alleles_per_var(chunk, calc_freqs=False)
+    allele_counts = res["counts"][pynei.config.DEF_POP_NAME]["allele_counts"]
+    assert allele_counts.columns.tolist() == [0, 5]
+    assert numpy.array_equal(allele_counts.values, [[3, 3], [2, 2]])
+    assert res["alleles"] == {0, 5}
+
+
+def test_jost_dest_takes_the_alleles():
+    from pynei import calc_jost_dest_pop_dists
+
+    gts = numpy.array(
+        [
+            [[0, 0], [1, 1], [0, 2], [0, 1]],
+            [[0, 1], [0, 0], [0, 1], [1, 0]],
+        ]
+    )
+    variants = Variants.from_gt_array(gts, samples=["a", "b", "c", "d"])
+    pops = {"p1": ["a", "b"], "p2": ["c", "d"]}
+    with pytest.raises(RuntimeError, match="not present in the given ones"):
+        calc_jost_dest_pop_dists(variants, pops=pops, alleles=[0, 1], min_num_samples=1)

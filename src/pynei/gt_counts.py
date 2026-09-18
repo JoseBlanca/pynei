@@ -71,6 +71,23 @@ def _pops_key(pops):
     )
 
 
+def _count_each_allele(gts, alleles):
+    """How often every allele appears in every variant, and how many are missing.
+
+    It is one pass over the genotypes per allele, comparing and counting, and
+    one more for the missing ones. That is the fastest way there is for the
+    two or three alleles a variant has: bincount over the row and the allele
+    was 3x slower, because its index has to be 8 bytes per genotype, add.at
+    was 27x slower and a one hot sum 9x. What used to be slow was not the
+    counting but finding out which alleles to count, see the caller.
+    """
+    counts = numpy.empty((gts.shape[0], len(alleles)), dtype=numpy.int32)
+    for idx, allele in enumerate(alleles):
+        counts[:, idx] = numpy.count_nonzero(gts == allele, axis=(1, 2))
+    missing = numpy.count_nonzero(gts == MISSING_ALLELE, axis=(1, 2))
+    return counts, missing
+
+
 def _count_alleles_per_var(
     chunk,
     calc_freqs: bool,
@@ -79,8 +96,21 @@ def _count_alleles_per_var(
     min_num_samples=MIN_NUM_SAMPLES_FOR_POP_STAT,
     cache=None,
 ):
+    """The allele counts, per variant and per pop.
+
+    The columns are the alleles the chunk has, or the given ones. Giving them
+    is what makes the counts of different chunks line up, and a chunk with an
+    allele that was not given is an error rather than a count left out.
+    """
     if cache is not None:
-        key = ("allele_counts", calc_freqs, _pops_key(pops), min_num_samples)
+        alleles_key = None if alleles is None else tuple(alleles)
+        key = (
+            "allele_counts",
+            calc_freqs,
+            _pops_key(pops),
+            alleles_key,
+            min_num_samples,
+        )
         if key not in cache:
             cache[key] = _count_alleles_per_var(
                 chunk,
@@ -92,45 +122,64 @@ def _count_alleles_per_var(
         return cache[key]
 
     gts = chunk.gts.gt_values
-    missing_mask = chunk.gts.missing_mask
-
-    alleles_in_chunk = set(numpy.unique(gts).tolist()).difference([MISSING_ALLELE])
-    alleles = sorted(alleles_in_chunk)
     ploidy = chunk.ploidy
 
     if pops is None:
         pops = {DEF_POP_NAME: slice(None, None)}
 
-    if alleles is not None:
-        if alleles_in_chunk.difference(alleles):
-            raise RuntimeError(
-                f"These gts have alleles ({alleles_in_chunk}) not present in the given ones ({alleles})"
-            )
+    if alleles is None:
+        # every allele up to the biggest one is counted, and the ones in
+        # between that turn out not to be there are dropped at the end. The
+        # biggest one is a 0.1 ms reduction, while asking numpy.unique which
+        # alleles there are cost more than all the counting put together
+        max_allele = int(gts.max()) if gts.size else MISSING_ALLELE
+        alleles_to_count = list(range(max_allele + 1))
+    else:
+        alleles_to_count = list(alleles)
 
-    result = {}
+    counts_per_pop = {}
+    present = numpy.zeros(len(alleles_to_count), dtype=bool)
     for pop_id, pop_slice in pops.items():
         pop_gts = gts[:, pop_slice, :]
-        pop_missing_mask = missing_mask[:, pop_slice, :]
-        allele_counts = numpy.empty(
-            shape=(pop_gts.shape[0], len(alleles)), dtype=numpy.int32
-        )
-        for idx, allele in enumerate(alleles):
-            is_allele = numpy.logical_and(
-                pop_gts == allele, numpy.logical_not(pop_missing_mask)
-            )
-            allele_counts_per_row = numpy.sum(is_allele, axis=(1, 2))
-            allele_counts[:, idx] = allele_counts_per_row
-        allele_counts = pandas.DataFrame(allele_counts, columns=alleles)
-        missing_counts = numpy.sum(pop_missing_mask, axis=(1, 2))
+        counts, missing = _count_each_allele(pop_gts, alleles_to_count)
+        present |= counts.any(axis=0)
 
+        # every genotype is either one of the alleles counted or missing, so
+        # if the counts do not add up some value is neither
+        num_gts_per_var = pop_gts.shape[1] * pop_gts.shape[2]
+        if numpy.any(counts.sum(axis=1) + missing != num_gts_per_var):
+            found = set(numpy.unique(pop_gts).tolist()).difference(
+                alleles_to_count, [MISSING_ALLELE]
+            )
+            if alleles is None:
+                raise ValueError(
+                    f"There are genotypes below the missing allele "
+                    f"({MISSING_ALLELE}): {sorted(found)}"
+                )
+            raise RuntimeError(
+                f"These gts have alleles ({sorted(found)}) not present in the "
+                f"given ones ({alleles_to_count})"
+            )
+        counts_per_pop[pop_id] = (counts, missing, num_gts_per_var)
+
+    alleles_in_chunk = {alleles_to_count[idx] for idx in numpy.flatnonzero(present)}
+    if alleles is None:
+        kept = numpy.flatnonzero(present)
+        columns = [alleles_to_count[idx] for idx in kept]
+    else:
+        kept = slice(None)
+        columns = alleles_to_count
+
+    result = {}
+    for pop_id, (counts, missing_counts, num_gts_per_var) in counts_per_pop.items():
+        allele_counts = pandas.DataFrame(counts[:, kept], columns=columns)
         result[pop_id] = {
             "allele_counts": allele_counts,
             "missing_gts_per_var": missing_counts,
         }
 
         if calc_freqs:
-            expected_num_allelic_gts_in_snp = pop_gts.shape[1] * pop_gts.shape[2]
-            num_allelic_gts_per_snp = expected_num_allelic_gts_in_snp - missing_counts
+            num_allelic_gts_per_snp = num_gts_per_var - missing_counts
             num_allelic_gts_per_snp = num_allelic_gts_per_snp.reshape(
                 (num_allelic_gts_per_snp.shape[0], 1)
             )

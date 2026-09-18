@@ -540,7 +540,7 @@ def _calc_pairwise_dest(
         chunk,
         pops=pop_idxs,
         calc_freqs=True,
-        alleles=None,
+        alleles=alleles,
         min_num_samples=min_num_genotypes,
     )
     allele_freq1 = res["counts"][pop1]["allelic_freqs"].values
