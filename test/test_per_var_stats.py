@@ -156,3 +156,15 @@ def test_no_variants_is_an_error():
     variants = filter_by_missing_data(_create_vars(), max_allowed_missing_rate=-1)
     with pytest.raises(ValueError, match="no variants"):
         calc_per_var_distribs(variants)
+
+
+def test_mapping_the_chunks_with_threads_is_refused():
+    # threaded_map_reduce 0.1.1 map() silently drops results, so map_chunks
+    # has to refuse the threads instead of giving a wrong answer
+    from pynei.pipeline import Pipeline
+
+    pipeline = Pipeline(map_functs=[lambda chunk: chunk.num_vars])
+    variants = _create_vars()
+    assert len(list(pipeline.map_chunks(variants))) == 4
+    with pytest.raises(NotImplementedError, match="more than one thread"):
+        list(pipeline.map_chunks(variants, num_processes=2))

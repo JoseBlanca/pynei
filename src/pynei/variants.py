@@ -11,6 +11,7 @@ from .config import (
     PANDAS_FLOAT_DTYPE,
     PANDAS_INT_DTYPE,
     DEF_NUM_VARS_PER_CHUNK,
+    GT_012_NUMPY_DTYPE,
     MISSING_ALLELE,
     DEF_POP_NAME,
 )
@@ -147,18 +148,26 @@ class Genotypes:
         counts the same, so variants with more than two alleles are, in fact,
         transformed into biallelic ones.
         """
+        max_num_non_major_alleles = numpy.iinfo(GT_012_NUMPY_DTYPE).max
+        if self.ploidy > max_num_non_major_alleles:
+            raise NotImplementedError(
+                f"Only ploidies up to {max_num_non_major_alleles} are implemented: {self.ploidy}"
+            )
+
         res = _count_alleles_per_var(VariantsChunk(self), calc_freqs=False)
         allele_counts = res["counts"][DEF_POP_NAME]["allele_counts"]
 
         if not allele_counts.shape[1]:
             # there are only missing genotypes
-            return numpy.full(self.shape[:2], MISSING_ALLELE)
+            return numpy.full(self.shape[:2], MISSING_ALLELE, dtype=GT_012_NUMPY_DTYPE)
 
         # argmax gives the column of the major allele, not the allele itself,
         # and they are different when the alleles found are not 0, 1, 2...
         alleles = allele_counts.columns.to_numpy()
         major_alleles = alleles[numpy.argmax(allele_counts.values, axis=1)]
-        gts012 = numpy.sum(self.gt_values != major_alleles[:, None, None], axis=2)
+        gts012 = numpy.sum(
+            self.gt_values != major_alleles[:, None, None], axis=2
+        ).astype(GT_012_NUMPY_DTYPE)
 
         gts012[numpy.any(self.missing_mask, axis=2)] = MISSING_ALLELE
 

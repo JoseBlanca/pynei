@@ -21,6 +21,9 @@ PYTHON_ARRAY_TYPE = "i"
 BYTE_SIZE_OF_INT = array.array(PYTHON_ARRAY_TYPE, [0]).itemsize
 MAX_ALLELE_NUMBER = {1: 127, 2: 32767, 4: 2147483647}[BYTE_SIZE_OF_INT]
 GT_NUMPY_DTYPE = {2: numpy.int16, 4: numpy.int32}[BYTE_SIZE_OF_INT]
+# The 012 gts only hold the number of non major alleles of a genotype, 0 to the
+# ploidy, or MISSING_ALLELE, so the smallest int is enough for any real ploidy
+GT_012_NUMPY_DTYPE = numpy.int8
 
 PANDAS_STRING_STORAGE = "pyarrow"
 DEF_NUM_VARS_PER_CHUNK = 10000

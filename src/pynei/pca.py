@@ -51,19 +51,18 @@ def _create_012_gt_matrix(chunk, transform_to_biallelic=False):
     return gts012
 
 
-def _append_array(array: numpy.ndarray | None, array_to_append: numpy.ndarray):
-    if array is None:
-        return array_to_append
-
-    return numpy.vstack((array, array_to_append))
-
-
 def create_012_gt_matrix(variants, transform_to_biallelic=False):
     create_012_matrix = partial(
         _create_012_gt_matrix, transform_to_biallelic=transform_to_biallelic
     )
-    pipeline = Pipeline(map_functs=[create_012_matrix], reduce_funct=_append_array)
-    return pipeline.map_and_reduce(variants)
+    pipeline = Pipeline(map_functs=[create_012_matrix])
+    # The matrices of the chunks are kept and stacked once, at the end, because
+    # vstack copies everything that it has already stacked every time, and that
+    # makes building the matrix quadratic in the number of chunks
+    chunk_matrices = list(pipeline.map_chunks(variants))
+    if not chunk_matrices:
+        raise ValueError("There are no variants to build the 012 matrix from")
+    return numpy.vstack(chunk_matrices)
 
 
 def _create_pc_names(num_prin_comps):

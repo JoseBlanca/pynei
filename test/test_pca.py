@@ -9,7 +9,9 @@ from pynei.pca import (
     do_pcoa,
     do_pcoa_from_variants,
 )
-from pynei.variants import Variants
+from pynei.variants import Variants, Genotypes
+from pynei.var_filters import filter_by_missing_data
+from pynei import config
 from .datasets import IRIS
 from pynei.dists import Distances
 from pynei.config import MISSING_ALLELE
@@ -136,3 +138,42 @@ def test_pca_vars_with_missing_gts():
     assert numpy.sign(sample_with_missing) == numpy.sign(pop1)
     assert numpy.sign(sample_with_missing) != numpy.sign(pop2)
     assert abs(sample_with_missing - pop1) < abs(sample_with_missing - pop2)
+
+
+def test_mat012_is_stacked_once_and_keeps_the_order():
+    rng = numpy.random.default_rng(0)
+    gt_array = rng.integers(0, 2, size=(50, 8, 2))
+    samples = [f"sample_{idx}" for idx in range(8)]
+
+    def create_vars(chunk_size):
+        variants = Variants.from_gt_array(gt_array, samples=samples)
+        variants.desired_num_vars_per_chunk = chunk_size
+        return variants
+
+    in_one_chunk = create_012_gt_matrix(create_vars(50))
+    assert in_one_chunk.shape == (50, 8)
+    # however the variants are chunked, the rows are the variants, in order
+    for chunk_size in (1, 3, 7, 25):
+        assert numpy.array_equal(
+            create_012_gt_matrix(create_vars(chunk_size)), in_one_chunk
+        )
+
+
+def test_mat012_uses_the_small_int_dtype():
+    gt_array = numpy.random.randint(0, 2, size=(10, 4, 2))
+    variants = Variants.from_gt_array(gt_array, samples=list("abcd"))
+    assert create_012_gt_matrix(variants).dtype == config.GT_012_NUMPY_DTYPE
+    chunk = next(variants.iter_vars_chunks())
+    assert chunk.gts.to_012().dtype == config.GT_012_NUMPY_DTYPE
+    # the all missing shortcut has to give the same dtype
+    all_missing = Genotypes(numpy.full((2, 3, 2), MISSING_ALLELE))
+    assert all_missing.to_012().dtype == config.GT_012_NUMPY_DTYPE
+
+
+def test_mat012_with_no_variants():
+    variants = filter_by_missing_data(
+        Variants.from_gt_array(numpy.random.randint(0, 2, size=(5, 4, 2))),
+        max_allowed_missing_rate=-1,
+    )
+    with pytest.raises(ValueError, match="no variants"):
+        create_012_gt_matrix(variants)
