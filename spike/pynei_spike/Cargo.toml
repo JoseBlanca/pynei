@@ -1,0 +1,21 @@
+[package]
+name = "pynei_spike"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pynei_spike"
+crate-type = ["cdylib"]
+
+[dependencies]
+# wasm has no threads, so rayon and faer's rayon backed parallelism are only
+# pulled in off the wasm targets; the native build keeps faer's default features.
+faer = { version = "0.24.4", default-features = false, features = ["std", "linalg"] }
+flate2 = "1.1.10"
+memchr = "2.8.3"
+numpy = "0.29.0"
+pyo3 = { version = "0.29.2", features = ["extension-module"] }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+faer = { version = "0.24.4", default-features = false, features = ["rayon", "sparse-linalg", "rand", "npy"] }
+rayon = "1.12.0"

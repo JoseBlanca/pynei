@@ -6,3 +6,5 @@ test/__pycache__/
 pytest.ini
 *.pyc
 test/gwas_reference/work/
+spike/pynei_spike/target/
+spike/pynei_spike/dist/
